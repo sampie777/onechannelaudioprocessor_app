@@ -12,6 +12,10 @@ import '../models/mixer_state.dart';
 enum ConnectionType { wifi, bluetooth }
 
 class Esp32ConnectionService extends ChangeNotifier {
+  String? _lastIpAddress;
+  String? _lastBtAddress;
+  ConnectionType? _lastConnectionType;
+
   ConnectionType? _activeType;
   bool _isConnected = false;
 
@@ -31,6 +35,9 @@ class Esp32ConnectionService extends ChangeNotifier {
     await disconnect();
 
     try {
+      _lastIpAddress = ipAddress;
+      _lastConnectionType = ConnectionType.wifi;
+
       final wsUrl = 'ws://$ipAddress/ws';
 
       final ws = await WebSocket.connect(wsUrl).timeout(
@@ -69,6 +76,9 @@ class Esp32ConnectionService extends ChangeNotifier {
   Future<void> connectBluetooth(String address) async {
     await disconnect();
     try {
+      _lastBtAddress = address;
+      _lastConnectionType = ConnectionType.bluetooth;
+
       _btConnection = await BluetoothConnection.toAddress(address);
       _activeType = ConnectionType.bluetooth;
       _isConnected = true;
@@ -137,5 +147,15 @@ class Esp32ConnectionService extends ChangeNotifier {
     _isConnected = false;
     _activeType = null;
     notifyListeners();
+  }
+
+  Future<void> reconnect() async {
+    if (_lastConnectionType == ConnectionType.wifi && _lastIpAddress != null) {
+      await connectWifi(_lastIpAddress!);
+    } else if (_lastConnectionType == ConnectionType.bluetooth && _lastBtAddress != null) {
+      await connectBluetooth(_lastBtAddress!);
+    } else {
+      throw Exception("No previous connection data to restore");
+    }
   }
 }
