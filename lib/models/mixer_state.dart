@@ -1,4 +1,4 @@
-import 'dart:math';
+import '../utils/math.dart';
 
 // -----------------------------------------------------------------------------
 // GENERIC LOCKABLE STATE WRAPPER
@@ -332,24 +332,17 @@ class MixerState {
     _modules['device'] = device;
   }
 
-  // Linear float [0.0 - 1.0] to dBFS [-60 dBFS to 0 dBFS]
-  double get peakDbfs => _linearToDbfs(peakOverPeriod);
-  double get avgPeakDbfs => _linearToDbfs(avgPeakOverPeriod);
-
-  static double _linearToDbfs(double linear) {
-    if (linear <= 0.00001) return -60.0;
-    double db = 20 * log(linear) / ln10;
-    return db.clamp(-60.0, 0.0);
-  }
+  double get peakDbfs => rawToDbfs(peakOverPeriod);
+  double get avgPeakDbfs => rawToDbfs(avgPeakOverPeriod);
 
   // Automatically parses all standard incoming JSON (Meters + UI State)
   void updateFromJson(Map<String, dynamic> json) {
     // 1. Fast Meter Updates
     if (json.containsKey('peak_over_period')) {
-      peakOverPeriod = (json['peak_over_period'] as num).toDouble();
+      peakOverPeriod = 0.5;//(json['peak_over_period'] as num).toDouble();
     }
     if (json.containsKey('avg_peak_over_period')) {
-      avgPeakOverPeriod = (json['avg_peak_over_period'] as num).toDouble();
+      avgPeakOverPeriod = 0.1;//(json['avg_peak_over_period'] as num).toDouble();
     }
 
     // 2. Slow UI State Updates routed automatically
