@@ -19,7 +19,7 @@ class MiniMixerApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData.dark(useMaterial3: true).copyWith(
         colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.deepPurple,
+          seedColor: Colors.cyan,
           brightness: Brightness.dark,
         ),
       ),
