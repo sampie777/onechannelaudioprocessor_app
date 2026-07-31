@@ -192,34 +192,68 @@ class DeviceState extends MixerModule {
 // NESTED EQ COMPONENTS
 // -----------------------------------------------------------------------------
 class HighPassFilter extends MixerModule {
-  final Lockable<bool> enabled = Lockable(false);
-  final Lockable<int> frequency = Lockable(0);
+  final int defaultFreq;
+  final Lockable<bool> enabled = Lockable(true);
+  final Lockable<int> frequency;
+
+  HighPassFilter({this.defaultFreq = 4}) : frequency = Lockable(defaultFreq);
 
   @override Map<String, Lockable> get properties => {'enabled': enabled, 'frequency': frequency};
 }
 
 class ShelfFilter extends MixerModule {
-  final Lockable<int> frequency = Lockable(0);
+  final int defaultFreq;
+  bool isBypassed = false;
+  int storedGain = 0;
+
+  final Lockable<int> frequency;
   final Lockable<int> gain = Lockable(0);
 
+  ShelfFilter({this.defaultFreq = 80}) : frequency = Lockable(defaultFreq);
+
   @override Map<String, Lockable> get properties => {'frequency': frequency, 'gain': gain};
+
+  @override
+  void updateFromJson(Map<String, dynamic>? json) {
+    super.updateFromJson(json);
+    // Auto-unbypass if another device on the network sets a non-zero gain
+    if (gain.value != 0 && isBypassed) isBypassed = false;
+  }
+
+  // Helper to ensure the UI slider shows the stored gain when bypassed
+  int get uiGain => isBypassed ? storedGain : gain.value;
 }
 
 class ParametricEqBand extends MixerModule {
-  final Lockable<int> frequency = Lockable(0);
+  final int defaultFreq;
+  bool isBypassed = false;
+  int storedGain = 0;
+
+  final Lockable<int> frequency;
   final Lockable<int> gain = Lockable(0);
-  final Lockable<String> band = Lockable('narrow'); // Using string for wide/narrow enum
+  final Lockable<String> band = Lockable('narrow');
+
+  ParametricEqBand({this.defaultFreq = 230}) : frequency = Lockable(defaultFreq);
 
   @override Map<String, Lockable> get properties => {'frequency': frequency, 'gain': gain, 'band': band};
+
+  @override
+  void updateFromJson(Map<String, dynamic>? json) {
+    super.updateFromJson(json);
+    if (gain.value != 0 && isBypassed) isBypassed = false;
+  }
+
+  int get uiGain => isBypassed ? storedGain : gain.value;
 }
 
 class EqState extends MixerModule {
-  final HighPassFilter highPass = HighPassFilter();
-  final ShelfFilter lowShelf = ShelfFilter();
-  final ParametricEqBand low = ParametricEqBand();
-  final ParametricEqBand mid = ParametricEqBand();
-  final ParametricEqBand high = ParametricEqBand();
-  final ShelfFilter highShelf = ShelfFilter();
+  // Inject the correct lowest allowed frequency for each specific band
+  final HighPassFilter highPass = HighPassFilter(defaultFreq: 4);
+  final ShelfFilter lowShelf = ShelfFilter(defaultFreq: 105);
+  final ParametricEqBand low = ParametricEqBand(defaultFreq: 300);
+  final ParametricEqBand mid = ParametricEqBand(defaultFreq: 850);
+  final ParametricEqBand high = ParametricEqBand(defaultFreq: 2400);
+  final ShelfFilter highShelf = ShelfFilter(defaultFreq: 6900);
 
   @override
   Map<String, Lockable> get properties => {}; // Unused for nested parent

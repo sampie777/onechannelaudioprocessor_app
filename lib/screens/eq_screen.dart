@@ -5,11 +5,16 @@ import 'package:flutter/material.dart';
 import '../models/mixer_state.dart';
 import '../services/esp32_connection_service.dart';
 
-class EqScreen extends StatelessWidget {
+class EqScreen extends StatefulWidget {
   final Esp32ConnectionService service;
 
   const EqScreen({super.key, required this.service});
 
+  @override
+  State<EqScreen> createState() => _EqScreenState();
+}
+
+class _EqScreenState extends State<EqScreen> {
   static const List<int> _highPassFreqs = [4, 122, 153, 156, 245, 306, 392, 490, 612];
   static const List<int> _lowShelfFreqs = [80, 105, 135, 175];
   static const List<int> _lowFreqs = [230, 300, 385, 500];
@@ -18,7 +23,22 @@ class EqScreen extends StatelessWidget {
   static const List<int> _highShelfFreqs = [5300, 6900, 9000, 11700];
 
   void _sendEqCommand(String band, String param, String value) {
-    service.sendCommands({'eq.$band.$param': value});
+    widget.service.sendCommands({'eq.$band.$param': value});
+  }
+
+  void _resetBand(String band, dynamic filter, int defaultFreq, {bool isParametric = false}) {
+    // Clear client-side bypass memory
+    if (filter is ShelfFilter || filter is ParametricEqBand) {
+      filter.isBypassed = false;
+      filter.storedGain = 0;
+    }
+
+    final Map<String, String> commands = {
+      'eq.$band.frequency': defaultFreq.toString(),
+      'eq.$band.gain': '0',
+    };
+    if (isParametric) commands['eq.$band.band'] = 'narrow';
+    widget.service.sendCommands(commands);
   }
 
   @override
@@ -28,7 +48,7 @@ class EqScreen extends StatelessWidget {
         title: const Text('6-Band EQ'),
       ),
       body: StreamBuilder<MixerState>(
-        stream: service.stateStream,
+        stream: widget.service.stateStream,
         builder: (context, snapshot) {
           final state = snapshot.data;
           if (state == null) {
@@ -39,7 +59,6 @@ class EqScreen extends StatelessWidget {
 
           return Column(
             children: [
-              // 1. The Visual EQ Graph pinned to the top
               Container(
                 height: 220,
                 width: double.infinity,
@@ -51,7 +70,6 @@ class EqScreen extends StatelessWidget {
               ),
               const Divider(height: 1, thickness: 1),
 
-              // 2. The scrollable controls below
               Expanded(
                 child: ListView(
                   padding: const EdgeInsets.all(16.0),
@@ -77,28 +95,31 @@ class EqScreen extends StatelessWidget {
     );
   }
 
-  // ... (Keep ALL your existing _buildHighPassCard, _buildShelfCard, _buildParametricCard,
-  // _buildDiscreteSliderRow, _buildGainSliderRow, and _findClosestIndex methods exactly as they were) ...
-
   Widget _buildHighPassCard(HighPassFilter hpf) {
     return Card(
       elevation: 2,
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text('High Pass Filter', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.refresh),
+                  tooltip: 'Reset Band',
+                  onPressed: () => widget.service.sendCommands({
+                    'eq.high_pass.enabled': 'f',
+                    'eq.high_pass.frequency': hpf.defaultFreq.toString() // Use model default
+                  }),
+                ),
                 Switch(
-                  value: hpf.enabled.value,
+                  value: hpf.enabled.value, // HPF uses hardware enable
                   onChanged: (val) => _sendEqCommand('high_pass', 'enabled', val ? 't' : 'f'),
                 ),
               ],
             ),
-            const SizedBox(height: 8),
             _buildDiscreteSliderRow(
               label: 'Freq',
               value: hpf.frequency.value,
@@ -118,10 +139,31 @@ class EqScreen extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 16),
+            Row(
+              children: [
+                Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.refresh),
+                  tooltip: 'Reset Band',
+                  onPressed: () => _resetBand(bandKey, filter, filter.defaultFreq,),
+                ),
+                Switch(
+                  value: !filter.isBypassed,
+                  onChanged: (enabled) {
+                    if (enabled) {
+                      filter.isBypassed = false;
+                      _sendEqCommand(bandKey, 'gain', filter.storedGain.toString());
+                    } else {
+                      filter.storedGain = filter.uiGain;
+                      filter.isBypassed = true;
+                      _sendEqCommand(bandKey, 'gain', '0'); // Mute on ESP32
+                    }
+                  },
+                ),
+              ],
+            ),
             _buildDiscreteSliderRow(
               label: 'Freq',
               value: filter.frequency.value,
@@ -131,8 +173,15 @@ class EqScreen extends StatelessWidget {
             ),
             _buildGainSliderRow(
               label: 'Gain',
-              value: filter.gain.value,
-              onChanged: (val) => _sendEqCommand(bandKey, 'gain', val.toString()),
+              value: filter.uiGain,
+              onChanged: (val) {
+                if (filter.isBypassed) {
+                  // Only update locally if bypassed to prevent un-bypassing
+                  setState(() => filter.storedGain = val);
+                } else {
+                  _sendEqCommand(bandKey, 'gain', val.toString());
+                }
+              },
             ),
           ],
         ),
@@ -146,25 +195,45 @@ class EqScreen extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                SegmentedButton<String>(
-                  segments: const [
-                    ButtonSegment(value: 'narrow', label: Text('Narrow')),
-                    ButtonSegment(value: 'wide', label: Text('Wide')),
-                  ],
-                  selected: {band.band.value.isEmpty ? 'narrow' : band.band.value},
-                  onSelectionChanged: (Set<String> newSelection) {
-                    _sendEqCommand(bandKey, 'band', newSelection.first);
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.refresh),
+                  tooltip: 'Reset Band',
+                  onPressed: () => _resetBand(bandKey, band, band.defaultFreq, isParametric: true),
+                ),
+                Switch(
+                  value: !band.isBypassed,
+                  onChanged: (enabled) {
+                    if (enabled) {
+                      band.isBypassed = false;
+                      _sendEqCommand(bandKey, 'gain', band.storedGain.toString());
+                    } else {
+                      band.storedGain = band.uiGain;
+                      band.isBypassed = true;
+                      _sendEqCommand(bandKey, 'gain', '0');
+                    }
                   },
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: SegmentedButton<String>(
+                segments: const [
+                  ButtonSegment(value: 'narrow', label: Text('Narrow')),
+                  ButtonSegment(value: 'wide', label: Text('Wide')),
+                ],
+                selected: {band.band.value.isEmpty ? 'narrow' : band.band.value},
+                onSelectionChanged: (Set<String> newSelection) {
+                  _sendEqCommand(bandKey, 'band', newSelection.first);
+                },
+              ),
+            ),
+            const SizedBox(height: 12),
             _buildDiscreteSliderRow(
               label: 'Freq',
               value: band.frequency.value,
@@ -174,8 +243,14 @@ class EqScreen extends StatelessWidget {
             ),
             _buildGainSliderRow(
               label: 'Gain',
-              value: band.gain.value,
-              onChanged: (val) => _sendEqCommand(bandKey, 'gain', val.toString()),
+              value: band.uiGain,
+              onChanged: (val) {
+                if (band.isBypassed) {
+                  setState(() => band.storedGain = val);
+                } else {
+                  _sendEqCommand(bandKey, 'gain', val.toString());
+                }
+              },
             ),
           ],
         ),
@@ -254,10 +329,9 @@ class EqScreen extends StatelessWidget {
 class EqCurvePainter extends CustomPainter {
   final EqState eqState;
 
-  // Graph limits
   final double minFreq = 20.0;
   final double maxFreq = 20000.0;
-  final double maxDb = 15.0; // Show up to +15dB
+  final double maxDb = 15.0;
   final double minDb = -15.0;
 
   EqCurvePainter({required this.eqState});
@@ -281,14 +355,12 @@ class EqCurvePainter extends CustomPainter {
 
       double totalGain = 0;
 
-      // FIX 2: Pass the lowest allowed frequency as a fallback (4, 80, 5300, 230, etc.)
-      // so the graph still draws gain changes even before the ESP32 sends the initial frequency data.
       totalGain += _calcHighPassGain(freq);
-      totalGain += _calcShelfGain(freq, eqState.lowShelf.frequency.value, eqState.lowShelf.gain.value, true, 80.0);
-      totalGain += _calcShelfGain(freq, eqState.highShelf.frequency.value, eqState.highShelf.gain.value, false, 5300.0);
-      totalGain += _calcParametricGain(freq, eqState.low, 230.0);
-      totalGain += _calcParametricGain(freq, eqState.mid, 650.0);
-      totalGain += _calcParametricGain(freq, eqState.high, 1800.0);
+      totalGain += _calcShelfGain(freq, eqState.lowShelf, true);
+      totalGain += _calcShelfGain(freq, eqState.highShelf, false);
+      totalGain += _calcParametricGain(freq, eqState.low);
+      totalGain += _calcParametricGain(freq, eqState.mid);
+      totalGain += _calcParametricGain(freq, eqState.high);
 
       final double y = _dbToY(totalGain, size.height);
 
@@ -360,10 +432,8 @@ class EqCurvePainter extends CustomPainter {
   double _calcHighPassGain(double f) {
     if (!eqState.highPass.enabled.value) return 0.0;
 
-    double fc = eqState.highPass.frequency.value.toDouble();
-    if (fc <= 0) fc = 4.0; // Default fallback
+    final double fc = eqState.highPass.frequency.value.toDouble();
 
-    // FIX 1: Determine 1st (6dB/oct) or 2nd (12dB/oct) order based on frequency cutoff
     final int order = (fc <= 4.0) ? 1 : 2;
 
     // Standard Butterworth high-pass magnitude response formula
@@ -371,15 +441,14 @@ class EqCurvePainter extends CustomPainter {
     return -10.0 * (log(1.0 + pow(fc / f, 2 * order)) / ln10);
   }
 
-  double _calcShelfGain(double f, int fcInt, int gainInt, bool isLowShelf, double defaultFc) {
-    if (gainInt == 0) return 0.0;
+  double _calcShelfGain(double f, ShelfFilter filter, bool isLowShelf) {
+    if (filter.isBypassed) return 0.0;
 
-    double fc = fcInt.toDouble();
-    if (fc <= 0) fc = defaultFc; // Fallback so graph draws instantly on gain change
+    final double gain = filter.gain.value.toDouble();
+    if (gain == 0) return 0.0;
 
-    final double gain = gainInt.toDouble();
+    final double fc = filter.frequency.value.toDouble();
 
-    // Smooth logistic plateau approximation
     if (isLowShelf) {
       return gain / (1.0 + pow(f / fc, 3.0));
     } else {
@@ -387,29 +456,22 @@ class EqCurvePainter extends CustomPainter {
     }
   }
 
-  double _calcParametricGain(double f, ParametricEqBand band, double defaultFc) {
-    if (band.gain.value == 0) return 0.0;
-
-    double fc = band.frequency.value.toDouble();
-    if (fc <= 0) fc = defaultFc; // Fallback so graph draws instantly on gain change
+  double _calcParametricGain(double f, ParametricEqBand band) {
+    if (band.isBypassed) return 0.0;
 
     final double gain = band.gain.value.toDouble();
-    final double q = band.band.value == 'wide' ? 0.5 : 1.5;
+    if (gain == 0) return 0.0;
 
-    // Bell curve (Gaussian) approximation on logarithmic scale
+    final double fc = band.frequency.value.toDouble();
+
+    final double q = band.band.value == 'wide' ? 0.75 : 1.8;
+
     final double logDist = log(f / fc);
     return gain * exp(-(logDist * logDist) * (q * 4.0));
   }
 
-  // --- Coordinate Mapping ---
-
-  double _xToFreq(double x, double width) {
-    return minFreq * pow(maxFreq / minFreq, x / width);
-  }
-
-  double _freqToX(double f, double width) {
-    return width * (log(f / minFreq) / log(maxFreq / minFreq));
-  }
+  double _xToFreq(double x, double width) => minFreq * pow(maxFreq / minFreq, x / width);
+  double _freqToX(double f, double width) => width * (log(f / minFreq) / log(maxFreq / minFreq));
 
   double _dbToY(double db, double height) {
     final double clampedDb = db.clamp(minDb, maxDb);
@@ -418,7 +480,5 @@ class EqCurvePainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant EqCurvePainter oldDelegate) {
-    return true;
-  }
+  bool shouldRepaint(covariant EqCurvePainter oldDelegate) => true;
 }
