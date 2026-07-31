@@ -161,7 +161,11 @@ class Esp32ConnectionService extends ChangeNotifier {
   }
 
   Future<void> disconnect() async {
-    dev.log("Disconnecting current connection.");
+    dev.log(
+      "Disconnecting current connection.\n"
+      "\t_isConnected=$_isConnected;\n"
+      "\t_activeType=$_activeType;",
+    );
     await _wsChannel?.sink.close();
     await _btConnection?.close();
     _wsChannel = null;
@@ -172,7 +176,12 @@ class Esp32ConnectionService extends ChangeNotifier {
   }
 
   Future<void> reconnect() async {
-    dev.log("Reconnecting current connection.");
+    dev.log(
+      "Reconnecting current connection.\n"
+      "\t_lastConnectionType=$_lastConnectionType;\n"
+      "\t_isConnected=$_isConnected;\n"
+      "\t_activeType=$_activeType;",
+    );
     if (_lastConnectionType == ConnectionType.wifi && _lastIpAddress != null) {
       await connectWifi(_lastIpAddress!);
     } else if (_lastConnectionType == ConnectionType.bluetooth &&

@@ -37,8 +37,8 @@ class _MixerScreenState extends State<MixerScreen> {
 
   void _onConnectionStateChanged() {
     dev.log("Connection state changed. \n"
-        "\twidget.service.isConnected: ${widget.service.isConnected},\n"
-        "\t_isManualDisconnect: $_isManualDisconnect");
+        "\twidget.service.isConnected: ${widget.service.isConnected};\n"
+        "\t_isManualDisconnect: $_isManualDisconnect;");
 
     // 1. Connection Restored / Is Active
     if (widget.service.isConnected) {
