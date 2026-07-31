@@ -4,6 +4,7 @@ import '../models/mixer_state.dart';
 import '../services/esp32_connection_service.dart';
 import '../widgets/audio_meter.dart';
 import 'connection_screen.dart';
+import 'eq_screen.dart';
 
 class MixerScreen extends StatefulWidget {
   final Esp32ConnectionService service;
@@ -114,7 +115,17 @@ class _MixerScreenState extends State<MixerScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('MiniMixer'),
-        actions: [
+        actions: [IconButton(
+          icon: const Icon(Icons.tune),
+          tooltip: 'Equalizer',
+          onPressed: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => EqScreen(service: widget.service),
+              ),
+            );
+          },
+        ),
           IconButton(
             icon: const Icon(Icons.power_settings_new),
             tooltip: 'Disconnect',
