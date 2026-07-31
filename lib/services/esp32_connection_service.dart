@@ -24,6 +24,7 @@ class Esp32ConnectionService extends ChangeNotifier {
 
   final _stateController = StreamController<MixerState>.broadcast();
   Stream<MixerState> get stateStream => _stateController.stream;
+  final MixerState _currentMixerState = MixerState();
 
   bool get isConnected => _isConnected;
   ConnectionType? get activeType => _activeType;
@@ -129,11 +130,14 @@ class Esp32ConnectionService extends ChangeNotifier {
   }
 
   void _parseIncomingData(String rawJson) {
-    try {
-      final decoded = jsonDecode(rawJson);
-      if (decoded is Map<String, dynamic>) {
-        _stateController.add(MixerState.fromJson(decoded));
-      }
+    try {final decoded = jsonDecode(rawJson);
+    if (decoded is Map<String, dynamic>) {
+      // 2. Update the existing state in-place with whatever keys are present
+      _currentMixerState.updateFromJson(decoded);
+
+      // 3. Push the updated state object to the stream to trigger UI rebuilds
+      _stateController.add(_currentMixerState);
+    }
     } catch (_) {
       // Ignore framing or parse errors
     }

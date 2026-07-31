@@ -2,290 +2,190 @@ import 'dart:math';
 
 enum EqBand { narrow, wide }
 
+// -----------------------------------------------------------------------------
+// NESTED EQ COMPONENTS
+// -----------------------------------------------------------------------------
 class HighPassFilter {
-  final bool enabled;
-  final int frequency;
+  bool enabled = false;
+  int frequency = 0;
 
-  HighPassFilter({this.enabled = false, this.frequency = 0});
-
-  factory HighPassFilter.fromJson(Map<String, dynamic>? json) {
-    if (json == null) return HighPassFilter();
-    return HighPassFilter(
-      enabled: json['enabled'] as bool? ?? false,
-      frequency: (json['frequency'] as num?)?.toInt() ?? 0,
-    );
+  void updateFromJson(Map<String, dynamic>? json) {
+    if (json == null) return;
+    if (json.containsKey('enabled')) enabled = json['enabled'] as bool;
+    if (json.containsKey('frequency')) frequency = (json['frequency'] as num).toInt();
   }
 }
 
 class ShelfFilter {
-  final int frequency;
-  final int gain;
+  int frequency = 0;
+  int gain = 0;
 
-  ShelfFilter({this.frequency = 0, this.gain = 0});
-
-  factory ShelfFilter.fromJson(Map<String, dynamic>? json) {
-    if (json == null) return ShelfFilter();
-    return ShelfFilter(
-      frequency: (json['frequency'] as num?)?.toInt() ?? 0,
-      gain: (json['gain'] as num?)?.toInt() ?? 0,
-    );
+  void updateFromJson(Map<String, dynamic>? json) {
+    if (json == null) return;
+    if (json.containsKey('frequency')) frequency = (json['frequency'] as num).toInt();
+    if (json.containsKey('gain')) gain = (json['gain'] as num).toInt();
   }
 }
 
 class ParametricEqBand {
-  final int frequency;
-  final int gain;
-  final EqBand band;
+  int frequency = 0;
+  int gain = 0;
+  EqBand band = EqBand.narrow;
 
-  ParametricEqBand({
-    this.frequency = 0,
-    this.gain = 0,
-    this.band = EqBand.narrow,
-  });
-
-  factory ParametricEqBand.fromJson(Map<String, dynamic>? json) {
-    if (json == null) return ParametricEqBand();
-
-    final bandStr = json['band'] as String? ?? 'Narrow';
-    final bandEnum = bandStr.toLowerCase() == 'wide' ? EqBand.wide : EqBand.narrow;
-
-    return ParametricEqBand(
-      frequency: (json['frequency'] as num?)?.toInt() ?? 0,
-      gain: (json['gain'] as num?)?.toInt() ?? 0,
-      band: bandEnum,
-    );
+  void updateFromJson(Map<String, dynamic>? json) {
+    if (json == null) return;
+    if (json.containsKey('frequency')) frequency = (json['frequency'] as num).toInt();
+    if (json.containsKey('gain')) gain = (json['gain'] as num).toInt();
+    if (json.containsKey('band')) {
+      final bandStr = json['band'] as String? ?? 'Narrow';
+      band = bandStr.toLowerCase() == 'wide' ? EqBand.wide : EqBand.narrow;
+    }
   }
 }
 
 class EqState {
-  final HighPassFilter highPass;
-  final ShelfFilter lowShelf;
-  final ParametricEqBand low;
-  final ParametricEqBand mid;
-  final ParametricEqBand high;
-  final ShelfFilter highShelf;
+  final HighPassFilter highPass = HighPassFilter();
+  final ShelfFilter lowShelf = ShelfFilter();
+  final ParametricEqBand low = ParametricEqBand();
+  final ParametricEqBand mid = ParametricEqBand();
+  final ParametricEqBand high = ParametricEqBand();
+  final ShelfFilter highShelf = ShelfFilter();
 
-  EqState({
-    HighPassFilter? highPass,
-    ShelfFilter? lowShelf,
-    ParametricEqBand? low,
-    ParametricEqBand? mid,
-    ParametricEqBand? high,
-    ShelfFilter? highShelf,
-  })  : highPass = highPass ?? HighPassFilter(),
-        lowShelf = lowShelf ?? ShelfFilter(),
-        low = low ?? ParametricEqBand(),
-        mid = mid ?? ParametricEqBand(),
-        high = high ?? ParametricEqBand(),
-        highShelf = highShelf ?? ShelfFilter();
-
-  factory EqState.fromJson(Map<String, dynamic>? json) {
-    if (json == null) return EqState();
-    return EqState(
-      highPass: HighPassFilter.fromJson(json['high_pass']),
-      lowShelf: ShelfFilter.fromJson(json['low_shelf']),
-      low: ParametricEqBand.fromJson(json['low']),
-      mid: ParametricEqBand.fromJson(json['mid']),
-      high: ParametricEqBand.fromJson(json['high']),
-      highShelf: ShelfFilter.fromJson(json['high_shelf']),
-    );
+  void updateFromJson(Map<String, dynamic>? json) {
+    if (json == null) return;
+    if (json.containsKey('high_pass')) highPass.updateFromJson(json['high_pass']);
+    if (json.containsKey('low_shelf')) lowShelf.updateFromJson(json['low_shelf']);
+    if (json.containsKey('low')) low.updateFromJson(json['low']);
+    if (json.containsKey('mid')) mid.updateFromJson(json['mid']);
+    if (json.containsKey('high')) high.updateFromJson(json['high']);
+    if (json.containsKey('high_shelf')) highShelf.updateFromJson(json['high_shelf']);
   }
 }
 
+// -----------------------------------------------------------------------------
+// MODULE COMPONENTS
+// -----------------------------------------------------------------------------
 class RoutingState {
-  final bool micToPga;
-  final bool lineToPga;
-  final bool lineToAdcMix;
-  final bool adcMixToMainMixer;
-  final bool auxToMainMixer;
-  final bool dacToMainMixer;
+  bool micToPga = false;
+  bool lineToPga = false;
+  bool lineToAdcMix = false;
+  bool adcMixToMainMixer = false;
+  bool auxToMainMixer = false;
+  bool dacToMainMixer = false;
 
-  RoutingState({
-    this.micToPga = false,
-    this.lineToPga = false,
-    this.lineToAdcMix = false,
-    this.adcMixToMainMixer = false,
-    this.auxToMainMixer = false,
-    this.dacToMainMixer = false,
-  });
-
-  factory RoutingState.fromJson(Map<String, dynamic>? json) {
-    if (json == null) return RoutingState();
-    return RoutingState(
-      micToPga: json['mic_to_pga'] as bool? ?? false,
-      lineToPga: json['line_to_pga'] as bool? ?? false,
-      lineToAdcMix: json['line_to_adcmix'] as bool? ?? false,
-      adcMixToMainMixer: json['adcmix_to_main_mixer'] as bool? ?? false,
-      auxToMainMixer: json['aux_to_main_mixer'] as bool? ?? false,
-      dacToMainMixer: json['dac_to_main_mixer'] as bool? ?? false,
-    );
+  void updateFromJson(Map<String, dynamic>? json) {
+    if (json == null) return;
+    if (json.containsKey('mic_to_pga')) micToPga = json['mic_to_pga'] as bool;
+    if (json.containsKey('line_to_pga')) lineToPga = json['line_to_pga'] as bool;
+    if (json.containsKey('line_to_adcmix')) lineToAdcMix = json['line_to_adcmix'] as bool;
+    if (json.containsKey('adcmix_to_main_mixer')) adcMixToMainMixer = json['adcmix_to_main_mixer'] as bool;
+    if (json.containsKey('aux_to_main_mixer')) auxToMainMixer = json['aux_to_main_mixer'] as bool;
+    if (json.containsKey('dac_to_main_mixer')) dacToMainMixer = json['dac_to_main_mixer'] as bool;
   }
 }
 
 class PgaState {
-  final bool mute;
-  final double gain;
-  final bool boost;
+  bool mute = false;
+  double gain = 0.0;
+  bool boost = false;
 
-  PgaState({this.mute = false, this.gain = 0.0, this.boost = false});
-
-  factory PgaState.fromJson(Map<String, dynamic>? json) {
-    if (json == null) return PgaState();
-    return PgaState(
-      mute: json['mute'] as bool? ?? false,
-      gain: (json['gain'] as num?)?.toDouble() ?? 0.0,
-      boost: json['boost'] as bool? ?? false,
-    );
+  void updateFromJson(Map<String, dynamic>? json) {
+    if (json == null) return;
+    if (json.containsKey('mute')) mute = json['mute'] as bool;
+    if (json.containsKey('gain')) gain = (json['gain'] as num).toDouble();
+    if (json.containsKey('boost')) boost = json['boost'] as bool;
   }
 }
 
 class AdcState {
-  final double volume;
+  double volume = 0.0;
 
-  AdcState({this.volume = 0.0});
-
-  factory AdcState.fromJson(Map<String, dynamic>? json) {
-    if (json == null) return AdcState();
-    return AdcState(
-      volume: (json['volume'] as num?)?.toDouble() ?? 0.0,
-    );
+  void updateFromJson(Map<String, dynamic>? json) {
+    if (json == null) return;
+    if (json.containsKey('volume')) volume = (json['volume'] as num).toDouble();
   }
 }
 
 class DacState {
-  final bool mute;
-  final double volume;
+  bool mute = false;
+  double volume = 0.0;
 
-  DacState({this.mute = false, this.volume = 0.0});
-
-  factory DacState.fromJson(Map<String, dynamic>? json) {
-    if (json == null) return DacState();
-    return DacState(
-      mute: json['mute'] as bool? ?? false,
-      volume: (json['volume'] as num?)?.toDouble() ?? 0.0,
-    );
+  void updateFromJson(Map<String, dynamic>? json) {
+    if (json == null) return;
+    if (json.containsKey('mute')) mute = json['mute'] as bool;
+    if (json.containsKey('volume')) volume = (json['volume'] as num).toDouble();
   }
 }
 
 class MixerControlState {
-  final int volumeAdcMix;
-  final int volumeAux;
-  final bool mono;
+  int volumeAdcMix = 0;
+  int volumeAux = 0;
+  bool mono = false;
 
-  MixerControlState({
-    this.volumeAdcMix = 0,
-    this.volumeAux = 0,
-    this.mono = false,
-  });
-
-  factory MixerControlState.fromJson(Map<String, dynamic>? json) {
-    if (json == null) return MixerControlState();
-    return MixerControlState(
-      volumeAdcMix: (json['volume_adcmix'] as num?)?.toInt() ?? 0,
-      volumeAux: (json['volume_aux'] as num?)?.toInt() ?? 0,
-      mono: json['mono'] as bool? ?? false,
-    );
+  void updateFromJson(Map<String, dynamic>? json) {
+    if (json == null) return;
+    if (json.containsKey('volume_adcmix')) volumeAdcMix = (json['volume_adcmix'] as num).toInt();
+    if (json.containsKey('volume_aux')) volumeAux = (json['volume_aux'] as num).toInt();
+    if (json.containsKey('mono')) mono = json['mono'] as bool;
   }
 }
 
 class HeadphonesState {
-  final bool mute;
-  final int volume;
+  bool mute = false;
+  int volume = 0;
 
-  HeadphonesState({this.mute = false, this.volume = 0});
-
-  factory HeadphonesState.fromJson(Map<String, dynamic>? json) {
-    if (json == null) return HeadphonesState();
-    return HeadphonesState(
-      mute: json['mute'] as bool? ?? false,
-      volume: (json['volume'] as num?)?.toInt() ?? 0,
-    );
+  void updateFromJson(Map<String, dynamic>? json) {
+    if (json == null) return;
+    if (json.containsKey('mute')) mute = json['mute'] as bool;
+    if (json.containsKey('volume')) volume = (json['volume'] as num).toInt();
   }
 }
 
 class AuxOutState {
-  final bool mute;
-  final bool gainBoost;
-  final bool balanced;
+  bool mute = false;
+  bool gainBoost = false;
+  bool balanced = false;
 
-  AuxOutState({
-    this.mute = false,
-    this.gainBoost = false,
-    this.balanced = false,
-  });
-
-  factory AuxOutState.fromJson(Map<String, dynamic>? json) {
-    if (json == null) return AuxOutState();
-    return AuxOutState(
-      mute: json['mute'] as bool? ?? false,
-      gainBoost: json['gain_boost'] as bool? ?? false,
-      balanced: json['balanced'] as bool? ?? false,
-    );
+  void updateFromJson(Map<String, dynamic>? json) {
+    if (json == null) return;
+    if (json.containsKey('mute')) mute = json['mute'] as bool;
+    if (json.containsKey('gain_boost')) gainBoost = json['gain_boost'] as bool;
+    if (json.containsKey('balanced')) balanced = json['balanced'] as bool;
   }
 }
 
 class SpeakerState {
-  final bool mute;
-  final bool gainBoost;
-  final bool balanced;
-  final int volume;
+  bool mute = false;
+  bool gainBoost = false;
+  bool balanced = false;
+  int volume = 0;
 
-  SpeakerState({
-    this.mute = false,
-    this.gainBoost = false,
-    this.balanced = false,
-    this.volume = 0,
-  });
-
-  factory SpeakerState.fromJson(Map<String, dynamic>? json) {
-    if (json == null) return SpeakerState();
-    return SpeakerState(
-      mute: json['mute'] as bool? ?? false,
-      gainBoost: json['gain_boost'] as bool? ?? false,
-      balanced: json['balanced'] as bool? ?? false,
-      volume: (json['volume'] as num?)?.toInt() ?? 0,
-    );
+  void updateFromJson(Map<String, dynamic>? json) {
+    if (json == null) return;
+    if (json.containsKey('mute')) mute = json['mute'] as bool;
+    if (json.containsKey('gain_boost')) gainBoost = json['gain_boost'] as bool;
+    if (json.containsKey('balanced')) balanced = json['balanced'] as bool;
+    if (json.containsKey('volume')) volume = (json['volume'] as num).toInt();
   }
 }
 
 // -----------------------------------------------------------------------------
-// MAIN NAU88 STATE TREE MODEL
+// MAIN STATE TREE
 // -----------------------------------------------------------------------------
 class MixerState {
-  final double peakOverPeriod;
-  final double avgPeakOverPeriod;
+  double peakOverPeriod = 0.0;
+  double avgPeakOverPeriod = 0.0;
 
-  final RoutingState routing;
-  final PgaState pga;
-  final AdcState adc;
-  final EqState eq;
-  final DacState dac;
-  final MixerControlState mixer;
-  final HeadphonesState headphones;
-  final AuxOutState auxout;
-  final SpeakerState speaker;
-
-  MixerState({
-    this.peakOverPeriod = 0.0,
-    this.avgPeakOverPeriod = 0.0,
-    RoutingState? routing,
-    PgaState? pga,
-    AdcState? adc,
-    EqState? eq,
-    DacState? dac,
-    MixerControlState? mixer,
-    HeadphonesState? headphones,
-    AuxOutState? auxout,
-    SpeakerState? speaker,
-  })  : routing = routing ?? RoutingState(),
-        pga = pga ?? PgaState(),
-        adc = adc ?? AdcState(),
-        eq = eq ?? EqState(),
-        dac = dac ?? DacState(),
-        mixer = mixer ?? MixerControlState(),
-        headphones = headphones ?? HeadphonesState(),
-        auxout = auxout ?? AuxOutState(),
-        speaker = speaker ?? SpeakerState();
+  // Nested structures initialized once and updated in-place
+  final RoutingState routing = RoutingState();
+  final PgaState pga = PgaState();
+  final AdcState adc = AdcState();
+  final EqState eq = EqState();
+  final DacState dac = DacState();
+  final MixerControlState mixer = MixerControlState();
+  final HeadphonesState headphones = HeadphonesState();
+  final AuxOutState auxout = AuxOutState();
+  final SpeakerState speaker = SpeakerState();
 
   // Linear float [0.0 - 1.0] to dBFS [-60 dBFS to 0 dBFS]
   double get peakDbfs => _linearToDbfs(peakOverPeriod);
@@ -297,19 +197,25 @@ class MixerState {
     return db.clamp(-60.0, 0.0);
   }
 
-  factory MixerState.fromJson(Map<String, dynamic> json) {
-    return MixerState(
-      peakOverPeriod: (json['peak_over_period'] as num?)?.toDouble() ?? 0.0,
-      avgPeakOverPeriod: (json['avg_peak_over_period'] as num?)?.toDouble() ?? 0.0,
-      routing: RoutingState.fromJson(json['routing']),
-      pga: PgaState.fromJson(json['pga']),
-      adc: AdcState.fromJson(json['adc']),
-      eq: EqState.fromJson(json['eq']),
-      dac: DacState.fromJson(json['dac']),
-      mixer: MixerControlState.fromJson(json['mixer']),
-      headphones: HeadphonesState.fromJson(json['headphones']),
-      auxout: AuxOutState.fromJson(json['auxout']),
-      speaker: SpeakerState.fromJson(json['speaker']),
-    );
+  // Master update function handles partial JSON payloads
+  void updateFromJson(Map<String, dynamic> json) {
+    // High-frequency meter updates
+    if (json.containsKey('peak_over_period')) {
+      peakOverPeriod = (json['peak_over_period'] as num).toDouble();
+    }
+    if (json.containsKey('avg_peak_over_period')) {
+      avgPeakOverPeriod = (json['avg_peak_over_period'] as num).toDouble();
+    }
+
+    // Low-frequency UI state updates
+    if (json.containsKey('routing')) routing.updateFromJson(json['routing']);
+    if (json.containsKey('pga')) pga.updateFromJson(json['pga']);
+    if (json.containsKey('adc')) adc.updateFromJson(json['adc']);
+    if (json.containsKey('eq')) eq.updateFromJson(json['eq']);
+    if (json.containsKey('dac')) dac.updateFromJson(json['dac']);
+    if (json.containsKey('mixer')) mixer.updateFromJson(json['mixer']);
+    if (json.containsKey('headphones')) headphones.updateFromJson(json['headphones']);
+    if (json.containsKey('auxout')) auxout.updateFromJson(json['auxout']);
+    if (json.containsKey('speaker')) speaker.updateFromJson(json['speaker']);
   }
 }
