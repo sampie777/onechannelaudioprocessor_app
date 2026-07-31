@@ -4,5 +4,12 @@
 <dict>
 	<key>com.apple.security.app-sandbox</key>
 	<true/>
+	<!-- Enable outgoing network connections (WebSockets / HTTP) -->
+    <key>com.apple.security.network.client</key>
+    <true/>
+
+    <!-- Enable local network server/incoming sockets if needed -->
+    <key>com.apple.security.network.server</key>
+    <true/>
 </dict>
 </plist>

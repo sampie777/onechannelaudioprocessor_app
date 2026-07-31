@@ -1,5 +1,5 @@
 name: onechannelaudioprocessor
-description: "App for controlling the OneChannelAudioProcessor"
+description: "MiniMixer Mobile App for ESP32 Audio Processor"
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -30,10 +30,11 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-
-  # The following adds the Cupertino Icons font to your application.
-  # Use with the CupertinoIcons class for iOS style icons.
-  cupertino_icons: ^1.0.8
+  web_socket_channel: ^2.4.1
+  flutter_bluetooth_serial: ^0.4.0 # For Classic Bluetooth SPP
+  permission_handler: ^11.0.1
+  math_expressions: ^2.4.0
+  shared_preferences: ^2.2.2
 
 dev_dependencies:
   flutter_test:
