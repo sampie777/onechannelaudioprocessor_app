@@ -153,18 +153,15 @@ class _MixerScreenState extends State<MixerScreen> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
-                    // Audio Meter Column
+                    // --- AUDIO METER + SCALE ---
                     Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        AudioMeterWidget(
-                          peakLinear: state.peakOverPeriod,
-                          avgPeakLinear: state.avgPeakOverPeriod,
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          '${state.avgPeakDbfs.toStringAsFixed(1)} dBFS',
-                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        Expanded(
+                          child: AudioMeterWidget(
+                            peakLinear: state.peakOverPeriod,
+                            avgPeakLinear: state.avgPeakOverPeriod,
+                          ),
                         ),
                       ],
                     ),

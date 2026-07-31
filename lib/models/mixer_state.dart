@@ -339,10 +339,10 @@ class MixerState {
   void updateFromJson(Map<String, dynamic> json) {
     // 1. Fast Meter Updates
     if (json.containsKey('peak_over_period')) {
-      peakOverPeriod = 0.5;//(json['peak_over_period'] as num).toDouble();
+      peakOverPeriod = (json['peak_over_period'] as num).toDouble();
     }
     if (json.containsKey('avg_peak_over_period')) {
-      avgPeakOverPeriod = 0.1;//(json['avg_peak_over_period'] as num).toDouble();
+      avgPeakOverPeriod = (json['avg_peak_over_period'] as num).toDouble();
     }
 
     // 2. Slow UI State Updates routed automatically
