@@ -40,11 +40,15 @@ class AudioMeterWidget extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             Row(
-              spacing: 5,
+              spacing: 4,
               children: [
-                Text(
-                  rawToDbfs(avgPeakLinear).toStringAsFixed(1),
-                  style: const TextStyle(fontSize: 12.0),
+                SizedBox(
+                  width: 40,
+                  child: Text(
+                    rawToDbfs(avgPeakLinear).toStringAsFixed(1),
+                    style: const TextStyle(fontSize: 12.0),
+                    textAlign: TextAlign.end,
+                  ),
                 ),
                 Text('dBFS', style: const TextStyle(fontSize: 10.0)),
               ],
