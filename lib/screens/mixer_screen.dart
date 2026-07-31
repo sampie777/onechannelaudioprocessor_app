@@ -1,3 +1,5 @@
+import 'dart:developer' as dev;
+
 import 'package:flutter/material.dart';
 
 import '../models/mixer_state.dart';
@@ -34,6 +36,10 @@ class _MixerScreenState extends State<MixerScreen> {
   }
 
   void _onConnectionStateChanged() {
+    dev.log("Connection state changed. \n"
+        "\twidget.service.isConnected: ${widget.service.isConnected},\n"
+        "\t_isManualDisconnect: $_isManualDisconnect");
+
     // 1. Connection Restored / Is Active
     if (widget.service.isConnected) {
       if (_isReconnecting && mounted) {
@@ -86,6 +92,7 @@ class _MixerScreenState extends State<MixerScreen> {
 
     // 4. If we reach here, all 3 attempts failed.
     if (mounted && !_isManualDisconnect) {
+      dev.log("Connection lost permanently.");
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Connection lost permanently.'),
@@ -101,6 +108,7 @@ class _MixerScreenState extends State<MixerScreen> {
   }
 
   Future<void> _handleManualDisconnect() async {
+    dev.log("Manually disconnecting.");
     setState(() => _isManualDisconnect = true);
     await widget.service.disconnect();
 
@@ -167,97 +175,114 @@ class _MixerScreenState extends State<MixerScreen> {
                     ),
 
                     // Volume Fader Column
-                    Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Expanded(
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            // ⬇️ THIS IS THE MAGIC FIX ⬇️
-                            // Forces the CustomPaint to match the exact height of the Slider!
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              // The Fader
-                              SizedBox(
-                                width: 90, // Matches the faderLength so it doesn't clip
-                                child: SliderTheme(
-                                  data: SliderTheme.of(context).copyWith(
-                                    trackHeight: 12.0,
-                                    activeTrackColor: Colors.cyan,
-                                    inactiveTrackColor: Colors.grey.shade800,
-                                    thumbShape: const FaderThumbShape(
-                                      faderWidth: 32.0,
-                                      faderLength: 80.0,
+                    Expanded(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Expanded(
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                // The Fader
+                                SizedBox(
+                                  width: 90,
+                                  // Matches the faderLength so it doesn't clip
+                                  child: SliderTheme(
+                                    data: SliderTheme.of(context).copyWith(
+                                      trackHeight: 12.0,
+                                      activeTrackColor: Colors.cyan,
+                                      inactiveTrackColor: Colors.grey.shade800,
+                                      thumbShape: const FaderThumbShape(
+                                        faderWidth: 32.0,
+                                        faderLength: 80.0,
+                                      ),
+                                      // By setting the overlay to 24, we lock the internal padding
+                                      // of the slider so our math aligns perfectly!
+                                      overlayShape:
+                                          const RoundSliderOverlayShape(
+                                            overlayRadius: 24.0,
+                                          ),
                                     ),
-                                    // By setting the overlay to 24, we lock the internal padding
-                                    // of the slider so our math aligns perfectly!
-                                    overlayShape: const RoundSliderOverlayShape(overlayRadius: 24.0),
+                                    child: RotatedBox(
+                                      quarterTurns: 3,
+                                      child: Slider(
+                                        value: state.speaker.volume.value
+                                            .toDouble(),
+                                        min: -57.0,
+                                        max: 6.0,
+                                        divisions: 63,
+                                        onChanged: (val) {
+                                          widget.service.sendCommands({
+                                            'speaker.volume': val
+                                                .toInt()
+                                                .toString(),
+                                          });
+                                        },
+                                      ),
+                                    ),
                                   ),
-                                  child: RotatedBox(
-                                    quarterTurns: 3,
-                                    child: Slider(
-                                      value: state.speaker.volume.value.toDouble(),
+                                ),
+                                // The Scale Labels
+                                SizedBox(
+                                  width: 40,
+                                  child: CustomPaint(
+                                    painter: FaderScalePainter(
                                       min: -57.0,
                                       max: 6.0,
-                                      divisions: 63,
-                                      onChanged: (val) {
-                                        widget.service.sendCommands({'speaker.volume': val.toInt().toString()});
-                                      },
+                                      ticks: [6, 0, -5, -10, -20, -40],
                                     ),
                                   ),
                                 ),
-                              ),
-                              // The Scale Labels
-                              SizedBox(
-                                width: 40,
-                                child: CustomPaint(
-                                  painter: FaderScalePainter(
-                                    min: -57.0,
-                                    max: 6.0,
-                                    ticks: [6, 0, -5, -10, -20, -40],
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          '${state.speaker.volume.value} dB',
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                        const SizedBox(height: 16),
-                        const Text(
-                          'MUTE',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 1.5,
-                            color: Colors.grey,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        IconButton.filled(
-                          iconSize: 32,
-                          style: IconButton.styleFrom(
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12.0),
+                              ],
                             ),
-                            minimumSize: const Size(64, 64),
-                            backgroundColor: state.speaker.mute.value
-                                ? Colors.red.shade900.withAlpha(128)
-                                : Colors.cyan.withAlpha(51),
-                            foregroundColor: state.speaker.mute.value
-                                ? Colors.redAccent
-                                : Colors.cyanAccent,
                           ),
-                          icon: Icon(state.speaker.mute.value ? Icons.volume_off : Icons.volume_up),
-                          onPressed: () {
-                            widget.service.sendCommands({'speaker.mute': state.speaker.mute.value ? 'f' : 't'});
-                          },
-                        ),
-                      ],
-                    )
+                          const SizedBox(height: 16),
+                          Text(
+                            '${state.speaker.volume.value} dB',
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                          const SizedBox(height: 16),
+                          const Text(
+                            'MUTE',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1.5,
+                              color: Colors.grey,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          IconButton.filled(
+                            iconSize: 32,
+                            style: IconButton.styleFrom(
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12.0),
+                              ),
+                              minimumSize: const Size(64, 64),
+                              backgroundColor: state.speaker.mute.value
+                                  ? Colors.red.shade900.withAlpha(128)
+                                  : Colors.cyan.withAlpha(51),
+                              foregroundColor: state.speaker.mute.value
+                                  ? Colors.redAccent
+                                  : Colors.cyanAccent,
+                            ),
+                            icon: Icon(
+                              state.speaker.mute.value
+                                  ? Icons.volume_off
+                                  : Icons.volume_up,
+                            ),
+                            onPressed: () {
+                              widget.service.sendCommands({
+                                'speaker.mute': state.speaker.mute.value
+                                    ? 'f'
+                                    : 't',
+                              });
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
               );
@@ -267,7 +292,7 @@ class _MixerScreenState extends State<MixerScreen> {
           // Foreground: Reconnecting Overlay
           if (_isReconnecting)
             Container(
-              color: Colors.black.withOpacity(0.7),
+              color: Colors.black.withAlpha(178),
               child: Center(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -307,7 +332,11 @@ class FaderScalePainter extends CustomPainter {
   // ⬇️ ADJUST THIS OFFSET TO SHIFT THE SCALE UP/DOWN ⬇️
   final double topOffset = 0.0;
 
-  FaderScalePainter({required this.min, required this.max, required this.ticks});
+  FaderScalePainter({
+    required this.min,
+    required this.max,
+    required this.ticks,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -318,7 +347,8 @@ class FaderScalePainter extends CustomPainter {
       final fraction = (tick - min) / (max - min);
 
       // Added the topOffset here so the whole scale shifts down
-      final y = size.height - sliderPadding - (fraction * trackLength) + topOffset;
+      final y =
+          size.height - sliderPadding - (fraction * trackLength) + topOffset;
 
       final isUnity = tick == 0.0;
       final lineLength = isUnity ? 12.0 : 8.0;

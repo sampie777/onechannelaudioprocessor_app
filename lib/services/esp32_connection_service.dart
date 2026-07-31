@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:developer' as dev;
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -23,16 +24,19 @@ class Esp32ConnectionService extends ChangeNotifier {
   BluetoothConnection? _btConnection;
 
   final _stateController = StreamController<MixerState>.broadcast();
+
   Stream<MixerState> get stateStream => _stateController.stream;
   final MixerState _currentMixerState = MixerState();
 
   bool get isConnected => _isConnected;
+
   ConnectionType? get activeType => _activeType;
 
   // ---------------------------------------------------------------------------
   // CONNECT VIA WI-FI (WebSocket)
   // ---------------------------------------------------------------------------
   Future<void> connectWifi(String ipAddress) async {
+    dev.log("Connecting to IP address: $ipAddress");
     await disconnect();
 
     try {
@@ -54,16 +58,22 @@ class Esp32ConnectionService extends ChangeNotifier {
       _wsChannel = IOWebSocketChannel(ws);
 
       _wsChannel!.stream.listen(
-            (data) => _parseIncomingData(data.toString()),
-        onError: (err) => disconnect(),
-        onDone: () => disconnect(),
+        (data) => _parseIncomingData(data.toString()),
+        onError: (err) {
+          dev.log("Error while listening to websocket: $err");
+          disconnect();
+        },
+        onDone: () {
+          dev.log("Websocket stream is done.");
+          disconnect();
+        },
       );
 
       _activeType = ConnectionType.wifi;
       _isConnected = true;
       notifyListeners();
-
     } catch (e) {
+      dev.log("Failed to connect to IP address: $ipAddress.");
       _isConnected = false;
       _wsChannel = null;
       notifyListeners();
@@ -75,6 +85,8 @@ class Esp32ConnectionService extends ChangeNotifier {
   // CONNECT VIA BLUETOOTH SPP
   // ---------------------------------------------------------------------------
   Future<void> connectBluetooth(String address) async {
+    dev.log("Connecting to Bluetooth device: $address.");
+
     await disconnect();
     try {
       _lastBtAddress = address;
@@ -101,8 +113,8 @@ class Esp32ConnectionService extends ChangeNotifier {
           _parseIncomingData(completeFrame);
         }
       }, onDone: () => disconnect());
-
     } catch (e) {
+      dev.log("Failed to connect to Bluetooth device: $address.");
       _isConnected = false;
       notifyListeners();
       rethrow;
@@ -149,6 +161,7 @@ class Esp32ConnectionService extends ChangeNotifier {
   }
 
   Future<void> disconnect() async {
+    dev.log("Disconnecting current connection.");
     await _wsChannel?.sink.close();
     await _btConnection?.close();
     _wsChannel = null;
@@ -159,6 +172,7 @@ class Esp32ConnectionService extends ChangeNotifier {
   }
 
   Future<void> reconnect() async {
+    dev.log("Reconnecting current connection.");
     if (_lastConnectionType == ConnectionType.wifi && _lastIpAddress != null) {
       await connectWifi(_lastIpAddress!);
     } else if (_lastConnectionType == ConnectionType.bluetooth &&

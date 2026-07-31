@@ -1,3 +1,4 @@
+import 'dart:developer' as dev;
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -103,12 +104,14 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
           if (devices.isNotEmpty) _selectedBtDevice = devices.first;
         });
       } catch (e) {
-        debugPrint('Failed to load BT devices: $e');
+        dev.log('Failed to load BT devices: $e');
       }
     }
   }
 
   Future<void> _handleConnect() async {
+    dev.log("Start new connection.");
+
     setState(() => _isLoading = true);
     try {
       if (_selectedType == ConnectionType.wifi) {
@@ -139,6 +142,7 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
       }
     } catch (e) {
       // 4. On failure: disconnect cleanup, don't save IP, and show error
+      dev.log("Failed to create a new connection.");
       await widget.service.disconnect();
 
       if (mounted) {
