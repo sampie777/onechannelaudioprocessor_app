@@ -14,11 +14,7 @@ class MixerScreen extends StatefulWidget {
 }
 
 class _MixerScreenState extends State<MixerScreen> {
-  bool _isMuted = false;
-  double _volume = 0.0;
   bool _isManualDisconnect = false;
-
-  // Auto-reconnect state
   bool _isReconnecting = false;
   int _reconnectAttempts = 0;
 
@@ -113,16 +109,6 @@ class _MixerScreenState extends State<MixerScreen> {
     }
   }
 
-  void _toggleMute() {
-    setState(() => _isMuted = !_isMuted);
-    widget.service.sendCommands({'speaker.mute': _isMuted ? 't' : 'f'});
-  }
-
-  void _onVolumeChanged(double val) {
-    setState(() => _volume = val);
-    widget.service.sendCommands({'speaker.volume': val.toInt().toString()});
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -173,29 +159,36 @@ class _MixerScreenState extends State<MixerScreen> {
                           child: RotatedBox(
                             quarterTurns: 3,
                             child: Slider(
-                              value: _volume,
+                              // Reads directly from the global state!
+                              value: state.speaker.volume.value.toDouble(),
                               min: -57.0,
                               max: 6.0,
                               divisions: 63,
-                              label: '${_volume.toInt()} dB',
-                              onChanged: _onVolumeChanged,
+                              label: '${state.speaker.volume.value} dB',
+                              onChanged: (val) {
+                                // Sends the command (which instantly updates the state stream)
+                                widget.service.sendCommands({'speaker.volume': val.toInt().toString()});
+                              },
                             ),
                           ),
                         ),
                         Text(
-                          '${_volume.toInt()} dB',
+                          '${state.speaker.volume.value} dB',
                           style: Theme.of(context).textTheme.titleMedium,
                         ),
                         const SizedBox(height: 16),
                         IconButton.filled(
                           iconSize: 32,
-                          icon: Icon(_isMuted ? Icons.volume_off : Icons.volume_up),
-                          color: _isMuted ? Colors.red : Colors.green,
-                          onPressed: _toggleMute,
+                          icon: Icon(state.speaker.mute.value ? Icons.volume_off : Icons.volume_up),
+                          color: state.speaker.mute.value ? Colors.red : Colors.green,
+                          onPressed: () {
+                            // Flips the current network state and sends
+                            widget.service.sendCommands({'speaker.mute': state.speaker.mute.value ? 'f' : 't'});
+                          },
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          _isMuted ? 'MUTED' : 'ACTIVE',
+                          state.speaker.mute.value ? 'MUTED' : 'ACTIVE',
                           style: const TextStyle(fontSize: 12),
                         ),
                       ],

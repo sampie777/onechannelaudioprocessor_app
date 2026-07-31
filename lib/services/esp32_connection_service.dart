@@ -115,6 +115,9 @@ class Esp32ConnectionService extends ChangeNotifier {
   void sendCommands(Map<String, String> commands) {
     if (!_isConnected) return;
 
+    _currentMixerState.updateFromCommands(commands);
+    _stateController.add(_currentMixerState);
+
     List<String> parts = [];
     commands.forEach((key, value) {
       parts.add('$key=$value');
@@ -124,20 +127,22 @@ class Esp32ConnectionService extends ChangeNotifier {
 
     if (_activeType == ConnectionType.wifi && _wsChannel != null) {
       _wsChannel!.sink.add(payload);
-    } else if (_activeType == ConnectionType.bluetooth && _btConnection != null) {
+    } else if (_activeType == ConnectionType.bluetooth &&
+        _btConnection != null) {
       _btConnection!.output.add(utf8.encode('$payload\n'));
     }
   }
 
   void _parseIncomingData(String rawJson) {
-    try {final decoded = jsonDecode(rawJson);
-    if (decoded is Map<String, dynamic>) {
-      // 2. Update the existing state in-place with whatever keys are present
-      _currentMixerState.updateFromJson(decoded);
+    try {
+      final decoded = jsonDecode(rawJson);
+      if (decoded is Map<String, dynamic>) {
+        // 2. Update the existing state in-place with whatever keys are present
+        _currentMixerState.updateFromJson(decoded);
 
-      // 3. Push the updated state object to the stream to trigger UI rebuilds
-      _stateController.add(_currentMixerState);
-    }
+        // 3. Push the updated state object to the stream to trigger UI rebuilds
+        _stateController.add(_currentMixerState);
+      }
     } catch (_) {
       // Ignore framing or parse errors
     }
@@ -156,7 +161,8 @@ class Esp32ConnectionService extends ChangeNotifier {
   Future<void> reconnect() async {
     if (_lastConnectionType == ConnectionType.wifi && _lastIpAddress != null) {
       await connectWifi(_lastIpAddress!);
-    } else if (_lastConnectionType == ConnectionType.bluetooth && _lastBtAddress != null) {
+    } else if (_lastConnectionType == ConnectionType.bluetooth &&
+        _lastBtAddress != null) {
       await connectBluetooth(_lastBtAddress!);
     } else {
       throw Exception("No previous connection data to restore");

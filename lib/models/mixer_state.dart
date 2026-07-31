@@ -1,49 +1,209 @@
 import 'dart:math';
 
-enum EqBand { narrow, wide }
-
 // -----------------------------------------------------------------------------
-// NESTED EQ COMPONENTS
+// GENERIC LOCKABLE STATE WRAPPER
 // -----------------------------------------------------------------------------
-class HighPassFilter {
-  bool enabled = false;
-  int frequency = 0;
+class Lockable<T> {
+  T value;
+  DateTime _lockUntil = DateTime.fromMillisecondsSinceEpoch(0);
 
-  void updateFromJson(Map<String, dynamic>? json) {
-    if (json == null) return;
-    if (json.containsKey('enabled')) enabled = json['enabled'] as bool;
-    if (json.containsKey('frequency')) frequency = (json['frequency'] as num).toInt();
+  Lockable(this.value);
+
+  // Automatically parses from incoming JSON (if lock expired)
+  void updateFromJson(dynamic jsonValue) {
+    if (jsonValue == null || DateTime.now().isBefore(_lockUntil)) return;
+
+    if (T == double && jsonValue is num) {
+      value = jsonValue.toDouble() as T;
+    } else if (T == int && jsonValue is num) {
+      value = jsonValue.toInt() as T;
+    } else if (T == bool && jsonValue is bool) {
+      value = jsonValue as T;
+    } else if (T == String && jsonValue is String) {
+      value = jsonValue as T;
+    }
   }
-}
 
-class ShelfFilter {
-  int frequency = 0;
-  int gain = 0;
+  // Parses from outgoing command strings (e.g. "t", "-12") and applies 2-sec lock
+  void updateFromStringCommand(String strVal) {
+    T? parsed;
 
-  void updateFromJson(Map<String, dynamic>? json) {
-    if (json == null) return;
-    if (json.containsKey('frequency')) frequency = (json['frequency'] as num).toInt();
-    if (json.containsKey('gain')) gain = (json['gain'] as num).toInt();
-  }
-}
+    if (T == bool) {
+      parsed = (strVal == 't' || strVal == 'true' || strVal == '1') as T;
+    } else if (T == int) {
+      parsed = int.tryParse(strVal) as T?;
+    } else if (T == double) {
+      parsed = double.tryParse(strVal) as T?;
+    } else if (T == String) {
+      parsed = strVal as T?;
+    }
 
-class ParametricEqBand {
-  int frequency = 0;
-  int gain = 0;
-  EqBand band = EqBand.narrow;
-
-  void updateFromJson(Map<String, dynamic>? json) {
-    if (json == null) return;
-    if (json.containsKey('frequency')) frequency = (json['frequency'] as num).toInt();
-    if (json.containsKey('gain')) gain = (json['gain'] as num).toInt();
-    if (json.containsKey('band')) {
-      final bandStr = json['band'] as String? ?? 'Narrow';
-      band = bandStr.toLowerCase() == 'wide' ? EqBand.wide : EqBand.narrow;
+    if (parsed != null) {
+      value = parsed;
+      _lockUntil = DateTime.now().add(const Duration(seconds: 2));
     }
   }
 }
 
-class EqState {
+// -----------------------------------------------------------------------------
+// BASE MODULE CLASS
+// -----------------------------------------------------------------------------
+abstract class MixerModule {
+  // Modules map their JSON keys to their internal Lockable objects here
+  Map<String, Lockable> get properties;
+
+  void updateFromJson(Map<String, dynamic>? json) {
+    if (json == null) return;
+    json.forEach((key, val) {
+      if (properties.containsKey(key)) {
+        properties[key]!.updateFromJson(val);
+      }
+    });
+  }
+
+  void applyOptimisticCommand(String param, String value) {
+    if (properties.containsKey(param)) {
+      properties[param]!.updateFromStringCommand(value);
+    }
+  }
+}
+
+// -----------------------------------------------------------------------------
+// MODULE COMPONENTS
+// -----------------------------------------------------------------------------
+class RoutingState extends MixerModule {
+  final Lockable<bool> micToPga = Lockable(false);
+  final Lockable<bool> lineToPga = Lockable(false);
+  final Lockable<bool> lineToAdcMix = Lockable(false);
+  final Lockable<bool> adcMixToMainMixer = Lockable(false);
+  final Lockable<bool> auxToMainMixer = Lockable(false);
+  final Lockable<bool> dacToMainMixer = Lockable(false);
+
+  @override
+  Map<String, Lockable> get properties => {
+    'mic_to_pga': micToPga,
+    'line_to_pga': lineToPga,
+    'line_to_adcmix': lineToAdcMix,
+    'adcmix_to_main_mixer': adcMixToMainMixer,
+    'aux_to_main_mixer': auxToMainMixer,
+    'dac_to_main_mixer': dacToMainMixer,
+  };
+}
+
+class PgaState extends MixerModule {
+  final Lockable<bool> mute = Lockable(false);
+  final Lockable<double> gain = Lockable(0.0);
+  final Lockable<bool> boost = Lockable(false);
+
+  @override
+  Map<String, Lockable> get properties => {
+    'mute': mute,
+    'gain': gain,
+    'boost': boost,
+  };
+}
+
+class AdcState extends MixerModule {
+  final Lockable<double> volume = Lockable(0.0);
+
+  @override
+  Map<String, Lockable> get properties => {'volume': volume};
+}
+
+class DacState extends MixerModule {
+  final Lockable<bool> mute = Lockable(false);
+  final Lockable<double> volume = Lockable(0.0);
+
+  @override
+  Map<String, Lockable> get properties => {'mute': mute, 'volume': volume};
+}
+
+class MixerControlState extends MixerModule {
+  final Lockable<int> volumeAdcMix = Lockable(0);
+  final Lockable<int> volumeAux = Lockable(0);
+  final Lockable<bool> mono = Lockable(false);
+
+  @override
+  Map<String, Lockable> get properties => {
+    'volume_adcmix': volumeAdcMix,
+    'volume_aux': volumeAux,
+    'mono': mono,
+  };
+}
+
+class HeadphonesState extends MixerModule {
+  final Lockable<bool> mute = Lockable(false);
+  final Lockable<int> volume = Lockable(0);
+
+  @override
+  Map<String, Lockable> get properties => {'mute': mute, 'volume': volume};
+}
+
+class AuxOutState extends MixerModule {
+  final Lockable<bool> mute = Lockable(false);
+  final Lockable<bool> gainBoost = Lockable(false);
+  final Lockable<bool> balanced = Lockable(false);
+
+  @override
+  Map<String, Lockable> get properties => {
+    'mute': mute,
+    'gain_boost': gainBoost,
+    'balanced': balanced,
+  };
+}
+
+class SpeakerState extends MixerModule {
+  final Lockable<bool> mute = Lockable(false);
+  final Lockable<bool> gainBoost = Lockable(false);
+  final Lockable<bool> balanced = Lockable(false);
+  final Lockable<int> volume = Lockable(0);
+
+  @override
+  Map<String, Lockable> get properties => {
+    'mute': mute,
+    'gain_boost': gainBoost,
+    'balanced': balanced,
+    'volume': volume,
+  };
+}
+
+class ClientState extends MixerModule {
+  final Lockable<int> smallUpdateIntervalMs = Lockable(0);
+  final Lockable<int> bigUpdateIntervalMs = Lockable(0);
+
+  @override
+  Map<String, Lockable> get properties => {
+    'small_update_interval_ms': smallUpdateIntervalMs,
+    'big_update_interval_ms': bigUpdateIntervalMs,
+  };
+}
+
+// -----------------------------------------------------------------------------
+// NESTED EQ COMPONENTS
+// -----------------------------------------------------------------------------
+class HighPassFilter extends MixerModule {
+  final Lockable<bool> enabled = Lockable(false);
+  final Lockable<int> frequency = Lockable(0);
+
+  @override Map<String, Lockable> get properties => {'enabled': enabled, 'frequency': frequency};
+}
+
+class ShelfFilter extends MixerModule {
+  final Lockable<int> frequency = Lockable(0);
+  final Lockable<int> gain = Lockable(0);
+
+  @override Map<String, Lockable> get properties => {'frequency': frequency, 'gain': gain};
+}
+
+class ParametricEqBand extends MixerModule {
+  final Lockable<int> frequency = Lockable(0);
+  final Lockable<int> gain = Lockable(0);
+  final Lockable<String> band = Lockable('narrow'); // Using string for wide/narrow enum
+
+  @override Map<String, Lockable> get properties => {'frequency': frequency, 'gain': gain, 'band': band};
+}
+
+class EqState extends MixerModule {
   final HighPassFilter highPass = HighPassFilter();
   final ShelfFilter lowShelf = ShelfFilter();
   final ParametricEqBand low = ParametricEqBand();
@@ -51,6 +211,10 @@ class EqState {
   final ParametricEqBand high = ParametricEqBand();
   final ShelfFilter highShelf = ShelfFilter();
 
+  @override
+  Map<String, Lockable> get properties => {}; // Unused for nested parent
+
+  @override
   void updateFromJson(Map<String, dynamic>? json) {
     if (json == null) return;
     if (json.containsKey('high_pass')) highPass.updateFromJson(json['high_pass']);
@@ -60,125 +224,20 @@ class EqState {
     if (json.containsKey('high')) high.updateFromJson(json['high']);
     if (json.containsKey('high_shelf')) highShelf.updateFromJson(json['high_shelf']);
   }
-}
 
-// -----------------------------------------------------------------------------
-// MODULE COMPONENTS
-// -----------------------------------------------------------------------------
-class RoutingState {
-  bool micToPga = false;
-  bool lineToPga = false;
-  bool lineToAdcMix = false;
-  bool adcMixToMainMixer = false;
-  bool auxToMainMixer = false;
-  bool dacToMainMixer = false;
-
-  void updateFromJson(Map<String, dynamic>? json) {
-    if (json == null) return;
-    if (json.containsKey('mic_to_pga')) micToPga = json['mic_to_pga'] as bool;
-    if (json.containsKey('line_to_pga')) lineToPga = json['line_to_pga'] as bool;
-    if (json.containsKey('line_to_adcmix')) lineToAdcMix = json['line_to_adcmix'] as bool;
-    if (json.containsKey('adcmix_to_main_mixer')) adcMixToMainMixer = json['adcmix_to_main_mixer'] as bool;
-    if (json.containsKey('aux_to_main_mixer')) auxToMainMixer = json['aux_to_main_mixer'] as bool;
-    if (json.containsKey('dac_to_main_mixer')) dacToMainMixer = json['dac_to_main_mixer'] as bool;
+  // Handles deep commands like 'eq.low.gain=5'
+  void applyNestedCommand(String subModule, String param, String value) {
+    switch (subModule) {
+      case 'high_pass': highPass.applyOptimisticCommand(param, value); break;
+      case 'low_shelf': lowShelf.applyOptimisticCommand(param, value); break;
+      case 'low': low.applyOptimisticCommand(param, value); break;
+      case 'mid': mid.applyOptimisticCommand(param, value); break;
+      case 'high': high.applyOptimisticCommand(param, value); break;
+      case 'high_shelf': highShelf.applyOptimisticCommand(param, value); break;
+    }
   }
 }
 
-class PgaState {
-  bool mute = false;
-  double gain = 0.0;
-  bool boost = false;
-
-  void updateFromJson(Map<String, dynamic>? json) {
-    if (json == null) return;
-    if (json.containsKey('mute')) mute = json['mute'] as bool;
-    if (json.containsKey('gain')) gain = (json['gain'] as num).toDouble();
-    if (json.containsKey('boost')) boost = json['boost'] as bool;
-  }
-}
-
-class AdcState {
-  double volume = 0.0;
-
-  void updateFromJson(Map<String, dynamic>? json) {
-    if (json == null) return;
-    if (json.containsKey('volume')) volume = (json['volume'] as num).toDouble();
-  }
-}
-
-class DacState {
-  bool mute = false;
-  double volume = 0.0;
-
-  void updateFromJson(Map<String, dynamic>? json) {
-    if (json == null) return;
-    if (json.containsKey('mute')) mute = json['mute'] as bool;
-    if (json.containsKey('volume')) volume = (json['volume'] as num).toDouble();
-  }
-}
-
-class MixerControlState {
-  int volumeAdcMix = 0;
-  int volumeAux = 0;
-  bool mono = false;
-
-  void updateFromJson(Map<String, dynamic>? json) {
-    if (json == null) return;
-    if (json.containsKey('volume_adcmix')) volumeAdcMix = (json['volume_adcmix'] as num).toInt();
-    if (json.containsKey('volume_aux')) volumeAux = (json['volume_aux'] as num).toInt();
-    if (json.containsKey('mono')) mono = json['mono'] as bool;
-  }
-}
-
-class HeadphonesState {
-  bool mute = false;
-  int volume = 0;
-
-  void updateFromJson(Map<String, dynamic>? json) {
-    if (json == null) return;
-    if (json.containsKey('mute')) mute = json['mute'] as bool;
-    if (json.containsKey('volume')) volume = (json['volume'] as num).toInt();
-  }
-}
-
-class AuxOutState {
-  bool mute = false;
-  bool gainBoost = false;
-  bool balanced = false;
-
-  void updateFromJson(Map<String, dynamic>? json) {
-    if (json == null) return;
-    if (json.containsKey('mute')) mute = json['mute'] as bool;
-    if (json.containsKey('gain_boost')) gainBoost = json['gain_boost'] as bool;
-    if (json.containsKey('balanced')) balanced = json['balanced'] as bool;
-  }
-}
-
-class SpeakerState {
-  bool mute = false;
-  bool gainBoost = false;
-  bool balanced = false;
-  int volume = 0;
-
-  void updateFromJson(Map<String, dynamic>? json) {
-    if (json == null) return;
-    if (json.containsKey('mute')) mute = json['mute'] as bool;
-    if (json.containsKey('gain_boost')) gainBoost = json['gain_boost'] as bool;
-    if (json.containsKey('balanced')) balanced = json['balanced'] as bool;
-    if (json.containsKey('volume')) volume = (json['volume'] as num).toInt();
-  }
-}
-
-class ClientState {
-  int smallUpdateIntervalMs = 0;
-  int bigUpdateIntervalMs = 0;
-
-  void updateFromJson(Map<String, dynamic>? json) {
-    if (json == null) return;
-    if (json.containsKey('small_update_interval_ms')) smallUpdateIntervalMs = (json['small_update_interval_ms'] as num).toInt();
-    if (json.containsKey('big_update_interval_ms')) bigUpdateIntervalMs = (json['big_update_interval_ms'] as num).toInt();
-  }
-}
 
 // -----------------------------------------------------------------------------
 // MAIN STATE TREE
@@ -187,16 +246,44 @@ class MixerState {
   double peakOverPeriod = 0.0;
   double avgPeakOverPeriod = 0.0;
 
-  // Nested structures initialized once and updated in-place
-  final RoutingState routing = RoutingState();
-  final PgaState pga = PgaState();
-  final AdcState adc = AdcState();
-  final EqState eq = EqState();
-  final DacState dac = DacState();
-  final MixerControlState mixer = MixerControlState();
-  final HeadphonesState headphones = HeadphonesState();
-  final AuxOutState auxout = AuxOutState();
-  final SpeakerState speaker = SpeakerState();
+  // 1. Declare the modules
+  late final RoutingState routing;
+  late final PgaState pga;
+  late final AdcState adc;
+  late final EqState eq;
+  late final DacState dac;
+  late final MixerControlState mixer;
+  late final HeadphonesState headphones;
+  late final AuxOutState auxout;
+  late final SpeakerState speaker;
+  late final ClientState client;
+
+  // 2. Module Registry for automated looping
+  final Map<String, MixerModule> _modules = {};
+
+  MixerState() {
+    routing = RoutingState();
+    pga = PgaState();
+    adc = AdcState();
+    eq = EqState();
+    dac = DacState();
+    mixer = MixerControlState();
+    headphones = HeadphonesState();
+    auxout = AuxOutState();
+    speaker = SpeakerState();
+    client = ClientState();
+
+    _modules['routing'] = routing;
+    _modules['pga'] = pga;
+    _modules['adc'] = adc;
+    _modules['eq'] = eq;
+    _modules['dac'] = dac;
+    _modules['mixer'] = mixer;
+    _modules['headphones'] = headphones;
+    _modules['auxout'] = auxout;
+    _modules['speaker'] = speaker;
+    _modules['client'] = client;
+  }
 
   // Linear float [0.0 - 1.0] to dBFS [-60 dBFS to 0 dBFS]
   double get peakDbfs => _linearToDbfs(peakOverPeriod);
@@ -208,9 +295,9 @@ class MixerState {
     return db.clamp(-60.0, 0.0);
   }
 
-  // Master update function handles partial JSON payloads
+  // Automatically parses all standard incoming JSON (Meters + UI State)
   void updateFromJson(Map<String, dynamic> json) {
-    // High-frequency meter updates
+    // 1. Fast Meter Updates
     if (json.containsKey('peak_over_period')) {
       peakOverPeriod = (json['peak_over_period'] as num).toDouble();
     }
@@ -218,16 +305,31 @@ class MixerState {
       avgPeakOverPeriod = (json['avg_peak_over_period'] as num).toDouble();
     }
 
-    // Low-frequency UI state updates
-    if (json.containsKey('routing')) routing.updateFromJson(json['routing']);
-    if (json.containsKey('pga')) pga.updateFromJson(json['pga']);
-    if (json.containsKey('adc')) adc.updateFromJson(json['adc']);
-    if (json.containsKey('eq')) eq.updateFromJson(json['eq']);
-    if (json.containsKey('dac')) dac.updateFromJson(json['dac']);
-    if (json.containsKey('mixer')) mixer.updateFromJson(json['mixer']);
-    if (json.containsKey('headphones')) headphones.updateFromJson(json['headphones']);
-    if (json.containsKey('auxout')) auxout.updateFromJson(json['auxout']);
-    if (json.containsKey('speaker')) speaker.updateFromJson(json['speaker']);
-    if (json.containsKey('client')) client.updateFromJson(json['client']);
+    // 2. Slow UI State Updates routed automatically
+    json.forEach((key, val) {
+      if (_modules.containsKey(key)) {
+        _modules[key]!.updateFromJson(val as Map<String, dynamic>);
+      }
+    });
+  }
+
+  // Automatically applies timestamps and updates from outgoing commands
+  void updateFromCommands(Map<String, String> commands) {
+    commands.forEach((key, value) {
+      final parts = key.split('.');
+      if (parts.isNotEmpty) {
+        final moduleName = parts[0];
+
+        if (_modules.containsKey(moduleName)) {
+          if (parts.length == 2) {
+            // Standard command (e.g. "speaker.mute")
+            _modules[moduleName]!.applyOptimisticCommand(parts[1], value);
+          } else if (parts.length == 3 && moduleName == 'eq') {
+            // Nested EQ command (e.g. "eq.low.gain")
+            (_modules['eq'] as EqState).applyNestedCommand(parts[1], parts[2], value);
+          }
+        }
+      }
+    });
   }
 }
