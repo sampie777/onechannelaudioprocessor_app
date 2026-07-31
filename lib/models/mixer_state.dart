@@ -178,6 +178,16 @@ class ClientState extends MixerModule {
   };
 }
 
+class DeviceState extends MixerModule {
+  final Lockable<bool> enableStatusLights = Lockable(true);
+  final Lockable<int> bigUpdateIntervalMs = Lockable(0);
+
+  @override
+  Map<String, Lockable> get properties => {
+    'enable_status_lights': enableStatusLights,
+  };
+}
+
 // -----------------------------------------------------------------------------
 // NESTED EQ COMPONENTS
 // -----------------------------------------------------------------------------
@@ -257,6 +267,7 @@ class MixerState {
   late final AuxOutState auxout;
   late final SpeakerState speaker;
   late final ClientState client;
+  late final DeviceState device;
 
   // 2. Module Registry for automated looping
   final Map<String, MixerModule> _modules = {};
@@ -272,6 +283,7 @@ class MixerState {
     auxout = AuxOutState();
     speaker = SpeakerState();
     client = ClientState();
+    device = DeviceState();
 
     _modules['routing'] = routing;
     _modules['pga'] = pga;
@@ -283,6 +295,7 @@ class MixerState {
     _modules['auxout'] = auxout;
     _modules['speaker'] = speaker;
     _modules['client'] = client;
+    _modules['device'] = device;
   }
 
   // Linear float [0.0 - 1.0] to dBFS [-60 dBFS to 0 dBFS]
