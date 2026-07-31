@@ -169,6 +169,17 @@ class SpeakerState {
   }
 }
 
+class ClientState {
+  int smallUpdateIntervalMs = 0;
+  int bigUpdateIntervalMs = 0;
+
+  void updateFromJson(Map<String, dynamic>? json) {
+    if (json == null) return;
+    if (json.containsKey('small_update_interval_ms')) smallUpdateIntervalMs = (json['small_update_interval_ms'] as num).toInt();
+    if (json.containsKey('big_update_interval_ms')) bigUpdateIntervalMs = (json['big_update_interval_ms'] as num).toInt();
+  }
+}
+
 // -----------------------------------------------------------------------------
 // MAIN STATE TREE
 // -----------------------------------------------------------------------------
@@ -217,5 +228,6 @@ class MixerState {
     if (json.containsKey('headphones')) headphones.updateFromJson(json['headphones']);
     if (json.containsKey('auxout')) auxout.updateFromJson(json['auxout']);
     if (json.containsKey('speaker')) speaker.updateFromJson(json['speaker']);
+    if (json.containsKey('client')) client.updateFromJson(json['client']);
   }
 }
