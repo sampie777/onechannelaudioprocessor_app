@@ -4,13 +4,15 @@ import 'package:flutter/scheduler.dart';
 import '../utils/math.dart';
 
 class AudioMeterWidget extends StatefulWidget {
-  final double peakLinear; // 0.0 - 1.0
-  final double avgPeakLinear; // 0.0 - 1.0
+  final double peak; // 0.0 - 1.0
+  final double width;
+  final String? label;
 
   const AudioMeterWidget({
     super.key,
-    required this.peakLinear,
-    required this.avgPeakLinear,
+    required this.peak,
+    required this.width,
+    this.label,
   });
 
   @override
@@ -37,8 +39,8 @@ class _AudioMeterWidgetState extends State<AudioMeterWidget>
   void didUpdateWidget(covariant AudioMeterWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
     // If incoming peak is higher than current falling indicator, snap up immediately
-    if (widget.peakLinear > _fallingPeak) {
-      _fallingPeak = widget.peakLinear.clamp(0.0, 1.0);
+    if (widget.peak > _fallingPeak) {
+      _fallingPeak = widget.peak.clamp(0.0, 1.0);
     }
   }
 
@@ -51,8 +53,8 @@ class _AudioMeterWidgetState extends State<AudioMeterWidget>
       _fallingPeak -= _decayRatePerSecond * (1 / 60.0);
 
       // Keep falling peak clamped between current real-time peak and 0
-      if (_fallingPeak < widget.peakLinear) {
-        _fallingPeak = widget.peakLinear.clamp(0.0, 1.0);
+      if (_fallingPeak < widget.peak) {
+        _fallingPeak = widget.peak.clamp(0.0, 1.0);
       }
     });
   }
@@ -65,16 +67,18 @@ class _AudioMeterWidgetState extends State<AudioMeterWidget>
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      spacing: 8,
       children: [
-        // 1. The Audio Meter Widget
-        Column(
-          children: [
-            Expanded(
-              child: Container(
-                width: 48,
+        Expanded(
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // 1. The Audio Meter Widget
+              Container(
+                width: widget.width,
                 height: 280,
                 padding: EdgeInsets.all(4),
                 decoration: BoxDecoration(
@@ -85,41 +89,29 @@ class _AudioMeterWidgetState extends State<AudioMeterWidget>
                 child: CustomPaint(
                   painter: _MeterPainter(
                     peakLinear: _fallingPeak,
-                    avgPeakLinear: widget.avgPeakLinear,
+                    avgPeakLinear: widget.peak,
                   ),
                 ),
               ),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              spacing: 4,
-              children: [
-                SizedBox(
-                  width: 40,
-                  child: Text(
-                    rawToDbfs(widget.avgPeakLinear).toStringAsFixed(1),
-                    style: const TextStyle(fontSize: 12.0),
-                    textAlign: TextAlign.end,
+              const SizedBox(width: 4),
+              // 2. The Professional dBFS Scale
+              Container(
+                padding: EdgeInsets.symmetric(vertical: 4),
+                child: Expanded(
+                  child: SizedBox(
+                    width: 35,
+                    child: CustomPaint(painter: AudioMeterScalePainter()),
                   ),
                 ),
-                Text('dBFS', style: const TextStyle(fontSize: 10.0)),
-              ],
-            ),
-          ],
-        ),
-        const SizedBox(width: 4),
-        // 2. The Professional dBFS Scale
-        Column(
-          children: [
-            Expanded(
-              child: SizedBox(
-                width: 35,
-                child: CustomPaint(painter: AudioMeterScalePainter()),
               ),
-            ),
-            const SizedBox(height: 30),
-          ],
+            ],
+          ),
         ),
+        if (widget.label != null)
+          Text(
+            widget.label!,
+            style: const TextStyle(fontSize: 12.0, color: Colors.grey),
+          ),
       ],
     );
   }

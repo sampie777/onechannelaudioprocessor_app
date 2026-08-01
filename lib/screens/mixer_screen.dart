@@ -36,9 +36,11 @@ class _MixerScreenState extends State<MixerScreen> {
   }
 
   void _onConnectionStateChanged() {
-    dev.log("Connection state changed. \n"
-        "\twidget.service.isConnected: ${widget.service.isConnected};\n"
-        "\t_isManualDisconnect: $_isManualDisconnect;");
+    dev.log(
+      "Connection state changed. \n"
+      "\twidget.service.isConnected: ${widget.service.isConnected};\n"
+      "\t_isManualDisconnect: $_isManualDisconnect;",
+    );
 
     // 1. Connection Restored / Is Active
     if (widget.service.isConnected) {
@@ -166,9 +168,19 @@ class _MixerScreenState extends State<MixerScreen> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Expanded(
-                          child: AudioMeterWidget(
-                            peakLinear: state.peakOverPeriod,
-                            avgPeakLinear: state.avgPeakOverPeriod,
+                          child: Row(
+                            children: [
+                              AudioMeterWidget(
+                                peak: state.peakOverPeriod,
+                                width: 20,
+                                label: "Max",
+                              ),
+                              AudioMeterWidget(
+                                peak: state.avgPeakOverPeriod,
+                                width: 20,
+                                label: "Avg",
+                              ),
+                            ],
                           ),
                         ),
                       ],
