@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 
 import '../utils/math.dart';
 
-class AudioMeterWidget extends StatelessWidget {
+class AudioMeterWidget extends StatefulWidget {
   final double peakLinear; // 0.0 - 1.0
   final double avgPeakLinear; // 0.0 - 1.0
 
@@ -11,6 +12,56 @@ class AudioMeterWidget extends StatelessWidget {
     required this.peakLinear,
     required this.avgPeakLinear,
   });
+
+  @override
+  State<AudioMeterWidget> createState() => _AudioMeterWidgetState();
+}
+
+class _AudioMeterWidgetState extends State<AudioMeterWidget>
+    with SingleTickerProviderStateMixin {
+  late Ticker _ticker;
+  double _fallingPeak = 0.0;
+
+  // Rate at which the peak bar drops per second (1.0 = full height per second)
+  // Adjust this value to make the drop faster or slower!
+  static const double _decayRatePerSecond = 0.05;
+
+  @override
+  void initState() {
+    super.initState();
+    // Use a Ticker to smoothly animate the drop on every display frame (60/120 Hz)
+    _ticker = createTicker(_onTick)..start();
+  }
+
+  @override
+  void didUpdateWidget(covariant AudioMeterWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // If incoming peak is higher than current falling indicator, snap up immediately
+    if (widget.peakLinear > _fallingPeak) {
+      _fallingPeak = widget.peakLinear.clamp(0.0, 1.0);
+    }
+  }
+
+  void _onTick(Duration elapsed) {
+    if (_fallingPeak <= 0.0) return;
+
+    // Calculate time delta since last frame (~16ms)
+    // Decrement peak gradually over time
+    setState(() {
+      _fallingPeak -= _decayRatePerSecond * (1 / 60.0);
+
+      // Keep falling peak clamped between current real-time peak and 0
+      if (_fallingPeak < widget.peakLinear) {
+        _fallingPeak = widget.peakLinear.clamp(0.0, 1.0);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _ticker.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -25,6 +76,7 @@ class AudioMeterWidget extends StatelessWidget {
               child: Container(
                 width: 48,
                 height: 280,
+                padding: EdgeInsets.all(4),
                 decoration: BoxDecoration(
                   color: Colors.black87,
                   borderRadius: BorderRadius.circular(6),
@@ -32,8 +84,8 @@ class AudioMeterWidget extends StatelessWidget {
                 ),
                 child: CustomPaint(
                   painter: _MeterPainter(
-                    peakLinear: peakLinear,
-                    avgPeakLinear: avgPeakLinear,
+                    peakLinear: _fallingPeak,
+                    avgPeakLinear: widget.avgPeakLinear,
                   ),
                 ),
               ),
@@ -45,7 +97,7 @@ class AudioMeterWidget extends StatelessWidget {
                 SizedBox(
                   width: 40,
                   child: Text(
-                    rawToDbfs(avgPeakLinear).toStringAsFixed(1),
+                    rawToDbfs(widget.avgPeakLinear).toStringAsFixed(1),
                     style: const TextStyle(fontSize: 12.0),
                     textAlign: TextAlign.end,
                   ),
@@ -85,9 +137,6 @@ class _MeterPainter extends CustomPainter {
     final double width = size.width;
 
     // Draw Average Peak Bar (Solid Fill)
-    final avgHeight = height * rawToDbLinear(avgPeakLinear).clamp(0.0, 1.0);
-    final avgRect = Rect.fromLTWH(4, height - avgHeight, width - 8, avgHeight);
-
     final Paint fillPaint = Paint()
       ..shader = LinearGradient(
         begin: Alignment.bottomCenter,
@@ -96,15 +145,21 @@ class _MeterPainter extends CustomPainter {
         stops: const [0.6, 0.85, 1.0],
       ).createShader(Rect.fromLTWH(0, 0, width, height));
 
-    canvas.drawRect(avgRect, fillPaint);
+    final avgHeight = height * rawToDbLinear(avgPeakLinear).clamp(0.0, 1.0);
+    final Rect barRect = Rect.fromLTWH(0, height - avgHeight, width, avgHeight);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(barRect, const Radius.circular(2)),
+      fillPaint,
+    );
 
     // Draw Max Peak Marker Line
-    if (peakLinear > 0.01) {
+    if (peakLinear > 0.001) {
       final peakY =
           height - (height * rawToDbLinear(peakLinear).clamp(0.0, 1.0));
       final Paint linePaint = Paint()
         ..color = Colors.white
-        ..strokeWidth = 3.0;
+        ..strokeWidth = 3.0
+        ..strokeCap = StrokeCap.round;
 
       canvas.drawLine(Offset(2, peakY), Offset(width - 2, peakY), linePaint);
     }
