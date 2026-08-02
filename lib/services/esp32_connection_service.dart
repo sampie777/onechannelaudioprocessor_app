@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:developer' as dev;
 import 'dart:io';
+import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bluetooth_serial_plus/flutter_bluetooth_serial_plus.dart';
@@ -10,7 +11,7 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 
 import '../models/mixer_state.dart';
 
-enum ConnectionType { wifi, bluetooth }
+enum ConnectionType { wifi, bluetooth, demo }
 
 class Esp32ConnectionService extends ChangeNotifier {
   String? _lastIpAddress;
@@ -22,6 +23,10 @@ class Esp32ConnectionService extends ChangeNotifier {
 
   WebSocketChannel? _wsChannel;
   BluetoothConnection? _btConnection;
+
+  // Demo Mode Members
+  Timer? _demoTimer;
+  final Random _random = Random();
 
   final _stateController = StreamController<MixerState>.broadcast();
 
@@ -122,6 +127,37 @@ class Esp32ConnectionService extends ChangeNotifier {
   }
 
   // ---------------------------------------------------------------------------
+  // CONNECT DEMO MODE
+  // ---------------------------------------------------------------------------
+  Future<void> connectDemo() async {
+    dev.log("Launching Demo Mode.");
+    await disconnect();
+
+    _lastConnectionType = ConnectionType.demo;
+    _activeType = ConnectionType.demo;
+    _isConnected = true;
+    notifyListeners();
+
+    // Periodically generate simulated audio meter peaks
+    _demoTimer?.cancel();
+    _demoTimer = Timer.periodic(const Duration(milliseconds: 200), (timer) {
+      if (!_isConnected || _activeType != ConnectionType.demo) return;
+
+      // Generate random linear peak values between 0.0 and 1.0
+      final double rawPeak = pow(_random.nextDouble(), 2).toDouble();
+      final double avgPeak = (rawPeak * 0.6) + (_random.nextDouble() * 0.1);
+
+      // Create update payload matching the json format
+      final mockJson = {
+        'peak_over_period': rawPeak.clamp(0.01, 1.0),
+        'avg_peak_over_period': avgPeak.clamp(0.01, 1.0),
+      };
+
+      _parseIncomingData(jsonEncode(mockJson));
+    });
+  }
+
+  // ---------------------------------------------------------------------------
   // SEND COMMAND FORMATTER: "speaker.mute=t&speaker.volume=0"
   // ---------------------------------------------------------------------------
   void sendCommands(Map<String, String> commands) {
@@ -129,6 +165,11 @@ class Esp32ConnectionService extends ChangeNotifier {
 
     _currentMixerState.updateFromCommands(commands);
     _stateController.add(_currentMixerState);
+
+    if (_activeType == ConnectionType.demo) {
+      // In demo mode, local state is already updated above, no socket needed
+      return;
+    }
 
     List<String> parts = [];
     commands.forEach((key, value) {
@@ -166,8 +207,13 @@ class Esp32ConnectionService extends ChangeNotifier {
       "\t_isConnected=$_isConnected;\n"
       "\t_activeType=$_activeType;",
     );
+
+    _demoTimer?.cancel();
+    _demoTimer = null;
+
     await _wsChannel?.sink.close();
     await _btConnection?.close();
+
     _wsChannel = null;
     _btConnection = null;
     _isConnected = false;
@@ -187,6 +233,8 @@ class Esp32ConnectionService extends ChangeNotifier {
     } else if (_lastConnectionType == ConnectionType.bluetooth &&
         _lastBtAddress != null) {
       await connectBluetooth(_lastBtAddress!);
+    } else if (_lastConnectionType == ConnectionType.demo) {
+      await connectDemo();
     } else {
       throw Exception("No previous connection data to restore");
     }

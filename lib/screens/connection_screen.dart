@@ -123,13 +123,16 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
 
         // 2. Only saved if connectWifi succeeded!
         await _saveSuccessfulIp(ip);
-      } else {
+      } else if (_selectedType == ConnectionType.bluetooth) {
         if (_selectedBtDevice == null) {
           throw Exception("Select a Bluetooth device");
         }
 
         // Attempt Bluetooth connection
         await widget.service.connectBluetooth(_selectedBtDevice!.address);
+      } else if (_selectedType == ConnectionType.demo) {
+        // Launch Demo Mode
+        await widget.service.connectDemo();
       }
 
       // 3. Navigate to MixerScreen only after successful connection test
@@ -184,10 +187,17 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
                   icon: const Icon(Icons.bluetooth),
                   enabled: _isBluetoothSupported,
                 ),
+                const ButtonSegment(
+                  value: ConnectionType.demo,
+                  label: Text('Demo'),
+                  icon: Icon(Icons.play_circle_outline),
+                ),
               ],
               selected: {_selectedType},
               onSelectionChanged: (set) {
-                if (_isBluetoothSupported || set.first == ConnectionType.wifi) {
+                if (_isBluetoothSupported ||
+                    set.first == ConnectionType.wifi ||
+                    set.first == ConnectionType.demo) {
                   setState(() => _selectedType = set.first);
                 }
               },
@@ -257,6 +267,35 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
                   );
                 }).toList(),
                 onChanged: (val) => setState(() => _selectedBtDevice = val),
+              ),
+            ]
+            // Demo Connection View
+            else if (_selectedType == ConnectionType.demo) ...[
+              Container(
+                padding: const EdgeInsets.all(20.0),
+                decoration: BoxDecoration(
+                  color: Colors.purple.withAlpha(25),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: Colors.purple.withAlpha(100),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.info_outline,
+                      color: Colors.purpleAccent.shade100,
+                      size: 28,
+                    ),
+                    const SizedBox(width: 16),
+                    const Expanded(
+                      child: Text(
+                        'Demo Mode runs offline with simulated audio meter values. No actual commands will be sent to hardware.',
+                        style: TextStyle(fontSize: 14, height: 1.4),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
             const Spacer(),
