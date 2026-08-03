@@ -96,13 +96,9 @@ class _AudioMeterWidgetState extends State<AudioMeterWidget>
               const SizedBox(width: 4),
               // 2. The Professional dBFS Scale
               Container(
-                padding: EdgeInsets.symmetric(vertical: 4),
-                child: Expanded(
-                  child: SizedBox(
-                    width: 35,
-                    child: CustomPaint(painter: AudioMeterScalePainter()),
-                  ),
-                ),
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                width: 35,
+                child: CustomPaint(painter: AudioMeterScalePainter()),
               ),
             ],
           ),
