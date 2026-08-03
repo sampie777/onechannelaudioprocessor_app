@@ -23,6 +23,7 @@ class Esp32ConnectionService extends ChangeNotifier {
   bool _isConnected = false;
 
   WebSocketChannel? _wsChannel;
+  UdpMeterService? udpService;
   BluetoothConnection? _btConnection;
 
   // Demo Mode Members
@@ -65,8 +66,8 @@ class Esp32ConnectionService extends ChangeNotifier {
 
       _wsChannel!.stream.listen(
         (data) => _parseIncomingData(data.toString()),
-        onError: (err) {
-          dev.log("Error while listening to websocket: $err");
+        onError: (error) {
+          dev.log("Error while listening to websocket: $error", error: error);
           disconnect();
         },
         onDone: () {
@@ -75,15 +76,12 @@ class Esp32ConnectionService extends ChangeNotifier {
         },
       );
 
-      final udpService = UdpMeterService();
-      udpService.onMeterData = (double peak, double avg) {
-        final json = {
-          "peak_over_period": peak,
-          "avg_peak_over_period": avg,
-        };
+      udpService = UdpMeterService();
+      udpService!.onMeterData = (double peak, double avg) {
+        final json = {"peak_over_period": peak, "avg_peak_over_period": avg};
         _parseIncomingData(jsonEncode(json));
       };
-      udpService.startListening(5005);
+      udpService!.startListening(5005);
 
       _activeType = ConnectionType.wifi;
       _isConnected = true;
@@ -115,20 +113,30 @@ class Esp32ConnectionService extends ChangeNotifier {
 
       StringBuffer rxBuffer = StringBuffer();
 
-      _btConnection!.input?.listen((Uint8List data) {
-        String chunk = utf8.decode(data);
-        rxBuffer.write(chunk);
+      _btConnection!.input?.listen(
+        (Uint8List data) {
+          String chunk = utf8.decode(data);
+          rxBuffer.write(chunk);
 
-        // Process line-delimited JSON or curly bracket frames
-        String content = rxBuffer.toString();
-        if (content.contains('{') && content.contains('}')) {
-          int lastIndex = content.lastIndexOf('}');
-          String completeFrame = content.substring(0, lastIndex + 1);
-          rxBuffer = StringBuffer(content.substring(lastIndex + 1));
+          // Process line-delimited JSON or curly bracket frames
+          String content = rxBuffer.toString();
+          if (content.contains('{') && content.contains('}')) {
+            int lastIndex = content.lastIndexOf('}');
+            String completeFrame = content.substring(0, lastIndex + 1);
+            rxBuffer = StringBuffer(content.substring(lastIndex + 1));
 
-          _parseIncomingData(completeFrame);
-        }
-      }, onDone: () => disconnect());
+            _parseIncomingData(completeFrame);
+          }
+        },
+        onError: (error) {
+          dev.log("Error while listening to Bluetooth", error: error);
+          disconnect();
+        },
+        onDone: () {
+          dev.log("Bluetooth connection is done");
+          disconnect();
+        },
+      );
     } catch (e) {
       dev.log("Failed to connect to Bluetooth device: $address.");
       _isConnected = false;
@@ -224,6 +232,7 @@ class Esp32ConnectionService extends ChangeNotifier {
 
     await _wsChannel?.sink.close();
     await _btConnection?.close();
+    udpService?.stopListening();
 
     _wsChannel = null;
     _btConnection = null;

@@ -43,6 +43,7 @@ class UdpMeterService {
   }
 
   void stopListening() {
+    dev.log("Closing UDP connection");
     _socket?.close();
     _socket = null;
   }
