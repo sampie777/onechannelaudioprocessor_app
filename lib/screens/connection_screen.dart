@@ -144,8 +144,7 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
         );
       }
     } catch (e) {
-      // 4. On failure: disconnect cleanup, don't save IP, and show error
-      dev.log("Failed to create a new connection.");
+      dev.log("Failed to create a new connection", error: e);
       await widget.service.disconnect();
 
       if (mounted) {

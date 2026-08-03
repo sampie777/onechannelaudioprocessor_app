@@ -6,6 +6,7 @@ import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bluetooth_serial_plus/flutter_bluetooth_serial_plus.dart';
+import 'package:onechannelaudioprocessor/services/udp_meter_service.dart';
 import 'package:web_socket_channel/io.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
@@ -73,6 +74,16 @@ class Esp32ConnectionService extends ChangeNotifier {
           disconnect();
         },
       );
+
+      final udpService = UdpMeterService();
+      udpService.onMeterData = (double peak, double avg) {
+        final json = {
+          "peak_over_period": peak,
+          "avg_peak_over_period": avg,
+        };
+        _parseIncomingData(jsonEncode(json));
+      };
+      udpService.startListening(5005);
 
       _activeType = ConnectionType.wifi;
       _isConnected = true;
