@@ -39,8 +39,8 @@ class _MixerScreenState extends State<MixerScreen> {
   void _onConnectionStateChanged() {
     dev.log(
       "Connection state changed. \n"
-          "\twidget.service.isConnected: ${widget.service.isConnected};\n"
-          "\t_isManualDisconnect: $_isManualDisconnect;",
+      "\twidget.service.isConnected: ${widget.service.isConnected};\n"
+      "\t_isManualDisconnect: $_isManualDisconnect;",
     );
 
     // 1. Connection Restored / Is Active
@@ -187,20 +187,47 @@ class _MixerScreenState extends State<MixerScreen> {
                     ),
 
                     Expanded(
-                      child: AudioFaderWidget(
-                        value: state.speaker.volume.value.toDouble(),
-                        isMuted: state.speaker.mute.value,
-                        onChanged: (val) {
-                          widget.service.sendCommands({
-                            'speaker.volume': val.toInt().toString(),
-                          });
-                        },
-                        onMuteToggled: () {
-                          widget.service.sendCommands({
-                            'speaker.mute':
-                            state.speaker.mute.value ? 'f' : 't',
-                          });
-                        },
+                      child: Row(
+                        children: [
+                          AudioFaderWidget(
+                            value: state.pga.gain.value.toDouble(),
+                            isMuted: state.pga.mute.value,
+                            onChanged: (val) {
+                              widget.service.sendCommands({
+                                'pga.gain': val.toInt().toString(),
+                              });
+                            },
+                            onMuteToggled: () {
+                              widget.service.sendCommands({
+                                'pga.mute': state.pga.mute.value ? 'f' : 't',
+                              });
+                            },
+                          ),
+                          AudioFaderWidget(
+                            value: state.adc.volume.value.toDouble(),
+                            onChanged: (val) {
+                              widget.service.sendCommands({
+                                'adc.volume': val.toInt().toString(),
+                              });
+                            },
+                          ),
+                          AudioFaderWidget(
+                            value: state.speaker.volume.value.toDouble(),
+                            isMuted: state.speaker.mute.value,
+                            onChanged: (val) {
+                              widget.service.sendCommands({
+                                'speaker.volume': val.toInt().toString(),
+                              });
+                            },
+                            onMuteToggled: () {
+                              widget.service.sendCommands({
+                                'speaker.mute': state.speaker.mute.value
+                                    ? 'f'
+                                    : 't',
+                              });
+                            },
+                          ),
+                        ],
                       ),
                     ),
                   ],

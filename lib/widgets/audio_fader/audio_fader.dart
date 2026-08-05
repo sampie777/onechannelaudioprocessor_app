@@ -5,17 +5,17 @@ import 'audio_mute_button.dart';
 
 class AudioFaderWidget extends StatelessWidget {
   final double value;
-  final bool isMuted;
+  final bool? isMuted;
   final ValueChanged<double> onChanged;
-  final VoidCallback onMuteToggled;
+  final VoidCallback? onMuteToggled;
   final List<double> scaleTicks;
 
   const AudioFaderWidget({
     super.key,
     required this.value,
-    required this.isMuted,
     required this.onChanged,
-    required this.onMuteToggled,
+    this.isMuted,
+    this.onMuteToggled,
     this.scaleTicks = const [-60.0, -40.0, -20.0, -10.0, -5.0, 0.0, 6.0],
   });
 
@@ -89,7 +89,9 @@ class AudioFaderWidget extends StatelessWidget {
         ),
         const SizedBox(height: 16),
 
-        AudioMuteButton(isMuted: isMuted, onMuteToggled: onMuteToggled),
+        isMuted != null && onMuteToggled != null
+            ? AudioMuteButton(isMuted: isMuted!, onMuteToggled: onMuteToggled!)
+            : const SizedBox(height: 87),
       ],
     );
   }
