@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'audio_fader_scales.dart';
+import 'audio_mute_button.dart';
 
 class AudioFaderWidget extends StatelessWidget {
   final double value;
@@ -57,7 +58,10 @@ class AudioFaderWidget extends StatelessWidget {
                       // Removed 'divisions' to allow a smooth analog feel
                       onChanged: (fraction) {
                         // Map the fraction back to dB, round to integer, and broadcast
-                        final mappedDb = linearToDb(scaleTicks, fraction).roundToDouble();
+                        final mappedDb = linearToDb(
+                          scaleTicks,
+                          fraction,
+                        ).roundToDouble();
                         onChanged(mappedDb);
                       },
                     ),
@@ -84,34 +88,8 @@ class AudioFaderWidget extends StatelessWidget {
           style: Theme.of(context).textTheme.titleMedium,
         ),
         const SizedBox(height: 16),
-        // Mute Label & Button
-        const Text(
-          'MUTE',
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 1.5,
-            color: Colors.grey,
-          ),
-        ),
-        const SizedBox(height: 8),
-        IconButton.filled(
-          iconSize: 32,
-          style: IconButton.styleFrom(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12.0),
-            ),
-            minimumSize: const Size(64, 64),
-            backgroundColor: isMuted
-                ? Colors.red.shade900.withAlpha(128)
-                : Colors.cyan.withAlpha(51),
-            foregroundColor: isMuted ? Colors.redAccent : Colors.cyanAccent,
-          ),
-          icon: Icon(
-            isMuted ? Icons.volume_off : Icons.volume_up,
-          ),
-          onPressed: onMuteToggled,
-        ),
+
+        AudioMuteButton(isMuted: isMuted, onMuteToggled: onMuteToggled),
       ],
     );
   }
