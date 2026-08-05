@@ -5,18 +5,16 @@ import 'dart:io';
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter_bluetooth_serial_plus/flutter_bluetooth_serial_plus.dart';
 import 'package:onechannelaudioprocessor/services/udp_meter_service.dart';
 import 'package:web_socket_channel/io.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 import '../models/mixer_state.dart';
 
-enum ConnectionType { wifi, bluetooth, demo }
+enum ConnectionType { wifi, direct, demo }
 
 class Esp32ConnectionService extends ChangeNotifier {
   String? _lastIpAddress;
-  String? _lastBtAddress;
   ConnectionType? _lastConnectionType;
 
   ConnectionType? _activeType;
@@ -24,7 +22,6 @@ class Esp32ConnectionService extends ChangeNotifier {
 
   WebSocketChannel? _wsChannel;
   UdpMeterService? udpService;
-  BluetoothConnection? _btConnection;
 
   // Demo Mode Members
   Timer? _demoTimer;
@@ -39,9 +36,6 @@ class Esp32ConnectionService extends ChangeNotifier {
 
   ConnectionType? get activeType => _activeType;
 
-  // ---------------------------------------------------------------------------
-  // CONNECT VIA WI-FI (WebSocket)
-  // ---------------------------------------------------------------------------
   Future<void> connectWifi(String ipAddress) async {
     dev.log("Connecting to IP address: $ipAddress");
     await disconnect();
@@ -95,59 +89,6 @@ class Esp32ConnectionService extends ChangeNotifier {
     }
   }
 
-  // ---------------------------------------------------------------------------
-  // CONNECT VIA BLUETOOTH SPP
-  // ---------------------------------------------------------------------------
-  Future<void> connectBluetooth(String address) async {
-    dev.log("Connecting to Bluetooth device: $address.");
-
-    await disconnect();
-    try {
-      _lastBtAddress = address;
-      _lastConnectionType = ConnectionType.bluetooth;
-
-      _btConnection = await BluetoothConnection.toAddress(address);
-      _activeType = ConnectionType.bluetooth;
-      _isConnected = true;
-      notifyListeners();
-
-      StringBuffer rxBuffer = StringBuffer();
-
-      _btConnection!.input?.listen(
-        (Uint8List data) {
-          String chunk = utf8.decode(data);
-          rxBuffer.write(chunk);
-
-          // Process line-delimited JSON or curly bracket frames
-          String content = rxBuffer.toString();
-          if (content.contains('{') && content.contains('}')) {
-            int lastIndex = content.lastIndexOf('}');
-            String completeFrame = content.substring(0, lastIndex + 1);
-            rxBuffer = StringBuffer(content.substring(lastIndex + 1));
-
-            _parseIncomingData(completeFrame);
-          }
-        },
-        onError: (error) {
-          dev.log("Error while listening to Bluetooth", error: error);
-          disconnect();
-        },
-        onDone: () {
-          dev.log("Bluetooth connection is done");
-          disconnect();
-        },
-      );
-    } catch (e) {
-      dev.log("Failed to connect to Bluetooth device: $address.");
-      _isConnected = false;
-      notifyListeners();
-      rethrow;
-    }
-  }
-
-  // ---------------------------------------------------------------------------
-  // CONNECT DEMO MODE
-  // ---------------------------------------------------------------------------
   Future<void> connectDemo() async {
     dev.log("Launching Demo Mode.");
     await disconnect();
@@ -197,11 +138,10 @@ class Esp32ConnectionService extends ChangeNotifier {
 
     String payload = parts.join('&');
 
-    if (_activeType == ConnectionType.wifi && _wsChannel != null) {
+    if ((_activeType == ConnectionType.wifi ||
+            _activeType == ConnectionType.direct) &&
+        _wsChannel != null) {
       _wsChannel!.sink.add(payload);
-    } else if (_activeType == ConnectionType.bluetooth &&
-        _btConnection != null) {
-      _btConnection!.output.add(utf8.encode('$payload\n'));
     }
   }
 
@@ -231,11 +171,9 @@ class Esp32ConnectionService extends ChangeNotifier {
     _demoTimer = null;
 
     await _wsChannel?.sink.close();
-    await _btConnection?.close();
     udpService?.stopListening();
 
     _wsChannel = null;
-    _btConnection = null;
     _isConnected = false;
     _activeType = null;
     notifyListeners();
@@ -248,11 +186,10 @@ class Esp32ConnectionService extends ChangeNotifier {
       "\t_isConnected=$_isConnected;\n"
       "\t_activeType=$_activeType;",
     );
-    if (_lastConnectionType == ConnectionType.wifi && _lastIpAddress != null) {
+    if ((_lastConnectionType == ConnectionType.wifi ||
+            _lastConnectionType == ConnectionType.direct) &&
+        _lastIpAddress != null) {
       await connectWifi(_lastIpAddress!);
-    } else if (_lastConnectionType == ConnectionType.bluetooth &&
-        _lastBtAddress != null) {
-      await connectBluetooth(_lastBtAddress!);
     } else if (_lastConnectionType == ConnectionType.demo) {
       await connectDemo();
     } else {

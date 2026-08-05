@@ -1,10 +1,6 @@
 import 'dart:developer' as dev;
-import 'dart:io';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_bluetooth_serial_plus/flutter_bluetooth_serial_plus.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../services/esp32_connection_service.dart';
@@ -23,21 +19,17 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
   static const String _recentIpsKey = 'recent_ip_addresses';
 
   ConnectionType _selectedType = ConnectionType.wifi;
-  final TextEditingController _ipController = TextEditingController(text: "192.168.1.100");
+  final TextEditingController _ipController = TextEditingController(
+    text: "192.168.1.100",
+  );
 
   List<String> _recentIps = [];
-  List<BluetoothDevice> _btDevices = [];
-  BluetoothDevice? _selectedBtDevice;
   bool _isLoading = false;
-
-  bool get _isBluetoothSupported =>
-      !kIsWeb && (Platform.isAndroid || Platform.isIOS);
 
   @override
   void initState() {
     super.initState();
     _loadSavedIps();
-    _requestPermissions();
   }
 
   // ---------------------------------------------------------------------------
@@ -77,38 +69,6 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
     });
   }
 
-  // ---------------------------------------------------------------------------
-  // PERMISSIONS & BLUETOOTH
-  // ---------------------------------------------------------------------------
-  Future<void> _requestPermissions() async {
-    // Mobile platforms (Android / iOS) require runtime permissions
-    if (_isBluetoothSupported) {
-      await [
-        Permission.bluetooth,
-        Permission.bluetoothConnect,
-        Permission.bluetoothScan,
-        Permission.locationWhenInUse,
-      ].request();
-    }
-
-    _loadBluetoothDevices();
-  }
-
-  Future<void> _loadBluetoothDevices() async {
-    if (_isBluetoothSupported) {
-      try {
-        List<BluetoothDevice> devices = await FlutterBluetoothSerial.instance
-            .getBondedDevices();
-        setState(() {
-          _btDevices = devices;
-          if (devices.isNotEmpty) _selectedBtDevice = devices.first;
-        });
-      } catch (e) {
-        dev.log('Failed to load BT devices: $e');
-      }
-    }
-  }
-
   Future<void> _handleConnect() async {
     dev.log("Start new connection.");
 
@@ -118,18 +78,14 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
         final ip = _ipController.text.trim();
         if (ip.isEmpty) throw Exception("Please enter an IP address");
 
-        // 1. Attempt connection (Will throw an exception if socket/IP is invalid)
         await widget.service.connectWifi(ip);
 
-        // 2. Only saved if connectWifi succeeded!
         await _saveSuccessfulIp(ip);
-      } else if (_selectedType == ConnectionType.bluetooth) {
-        if (_selectedBtDevice == null) {
-          throw Exception("Select a Bluetooth device");
-        }
+      } else if (_selectedType == ConnectionType.direct) {
+        final ip = "192.168.4.1"; // ESP local IP in soft AP mode
+        if (ip.isEmpty) throw Exception("Please enter an IP address");
 
-        // Attempt Bluetooth connection
-        await widget.service.connectBluetooth(_selectedBtDevice!.address);
+        await widget.service.connectWifi(ip);
       } else if (_selectedType == ConnectionType.demo) {
         // Launch Demo Mode
         await widget.service.connectDemo();
@@ -177,14 +133,9 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
                   icon: Icon(Icons.wifi),
                 ),
                 ButtonSegment(
-                  value: ConnectionType.bluetooth,
-                  label: Text(
-                    _isBluetoothSupported
-                        ? 'Bluetooth'
-                        : 'Bluetooth (Android/iOS Only)',
-                  ),
-                  icon: const Icon(Icons.bluetooth),
-                  enabled: _isBluetoothSupported,
+                  value: ConnectionType.direct,
+                  label: Text('Direct'),
+                  icon: const Icon(Icons.wifi),
                 ),
                 const ButtonSegment(
                   value: ConnectionType.demo,
@@ -194,11 +145,7 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
               ],
               selected: {_selectedType},
               onSelectionChanged: (set) {
-                if (_isBluetoothSupported ||
-                    set.first == ConnectionType.wifi ||
-                    set.first == ConnectionType.demo) {
-                  setState(() => _selectedType = set.first);
-                }
+                setState(() => _selectedType = set.first);
               },
             ),
             const SizedBox(height: 32),
@@ -250,23 +197,9 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
                 ),
               ],
             ]
-            // Bluetooth Connection View
-            else if (_isBluetoothSupported) ...[
-              DropdownButtonFormField<BluetoothDevice>(
-                value: _selectedBtDevice,
-                decoration: const InputDecoration(
-                  labelText: 'Select Paired Device',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.bluetooth_searching),
-                ),
-                items: _btDevices.map((dev) {
-                  return DropdownMenuItem(
-                    value: dev,
-                    child: Text(dev.name ?? dev.address),
-                  );
-                }).toList(),
-                onChanged: (val) => setState(() => _selectedBtDevice = val),
-              ),
+
+            // Direct Connection View
+            else if (_selectedType == ConnectionType.direct) ...[
             ]
             // Demo Connection View
             else if (_selectedType == ConnectionType.demo) ...[
@@ -275,9 +208,7 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
                 decoration: BoxDecoration(
                   color: Colors.purple.withAlpha(25),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: Colors.purple.withAlpha(100),
-                  ),
+                  border: Border.all(color: Colors.purple.withAlpha(100)),
                 ),
                 child: Row(
                   children: [
