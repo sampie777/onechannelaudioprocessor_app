@@ -2,8 +2,10 @@ import 'dart:async';
 import 'dart:developer' as dev;
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:wifi_scan/wifi_scan.dart';
 
 import '../services/esp32_connection_service.dart';
 import 'mixer_screen.dart';
@@ -19,6 +21,7 @@ class ConnectionScreen extends StatefulWidget {
 
 class _ConnectionScreenState extends State<ConnectionScreen> {
   static const String _recentIpsKey = 'recent_ip_addresses';
+  static const String _espSoftApSsid = 'OneChannelAudioProcessor';
 
   ConnectionType _selectedType = ConnectionType.wifi;
   final TextEditingController _ipController = TextEditingController(
@@ -32,9 +35,20 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
   bool _isScanningDirect = false;
   bool? _isDirectApAvailable;
 
+  bool get _isNativeMobileApp =>
+      !kIsWeb && (Platform.isAndroid || Platform.isIOS);
+
   @override
   void initState() {
     super.initState();
+
+    final lastConnectionType = widget.service.lastConnectionType;
+    if (lastConnectionType != null) {
+      setState(() {
+        _selectedType = lastConnectionType;
+      });
+    }
+
     _loadSavedIps();
   }
 
@@ -81,7 +95,7 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
   }
 
   // ---------------------------------------------------------------------------
-  // SCAN DIRECT SOFTAP AVAILABILITY (192.168.4.1)
+  // SCAN FOR NEARBY SOFTAP WITH `wifi_scan`
   // ---------------------------------------------------------------------------
   Future<void> _checkDirectApAvailability() async {
     setState(() {
@@ -90,21 +104,53 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
     });
 
     try {
-      // Ping TCP port 80 / endpoint on ESP32 SoftAP gateway IP (192.168.4.1)
-      final socket = await Socket.connect(
-        '192.168.4.1',
-        80,
-        timeout: const Duration(seconds: 2),
+      // 1. Check if scanning capabilities are enabled (requests permissions if askPermissions is true)
+      final canStart = await WiFiScan.instance.canStartScan(
+        askPermissions: true,
       );
-      socket.destroy();
+      if (canStart != CanStartScan.yes) {
+        dev.log("Cannot start Wi-Fi scan: $canStart");
+        if (mounted) {
+          setState(() {
+            _isDirectApAvailable = false;
+            _isScanningDirect = false;
+          });
+        }
+        return;
+      }
+
+      // 2. Trigger active scan
+      await WiFiScan.instance.startScan();
+
+      // 3. Verify capability to retrieve scanned results
+      final canGetResults = await WiFiScan.instance.canGetScannedResults(
+        askPermissions: true,
+      );
+      if (canGetResults != CanGetScannedResults.yes) {
+        dev.log("Cannot retrieve scan results: $canGetResults");
+        if (mounted) {
+          setState(() {
+            _isDirectApAvailable = false;
+            _isScanningDirect = false;
+          });
+        }
+        return;
+      }
+
+      // 4. Fetch scan results and check for target SSID
+      final accessPoints = await WiFiScan.instance.getScannedResults();
+      final bool foundTargetAp = accessPoints.any(
+        (ap) => ap.ssid == _espSoftApSsid,
+      );
 
       if (mounted) {
         setState(() {
-          _isDirectApAvailable = true;
+          _isDirectApAvailable = foundTargetAp;
           _isScanningDirect = false;
         });
       }
-    } catch (_) {
+    } catch (e) {
+      dev.log("Error during Wi-Fi scan", error: e);
       if (mounted) {
         setState(() {
           _isDirectApAvailable = false;
@@ -166,10 +212,7 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('MiniMixer Connect'),
-        centerTitle: true,
-      ),
+      appBar: AppBar(title: const Text('MiniMixer Connect'), centerTitle: true),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24.0),
@@ -182,7 +225,6 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-
                       // -------------------------------------------------------
                       // 1. WI-FI BUTTON & INPUT SECTION
                       // -------------------------------------------------------
@@ -195,7 +237,12 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
                       AnimatedCrossFade(
                         firstChild: const SizedBox(width: double.infinity),
                         secondChild: Padding(
-                          padding: const EdgeInsets.only(top: 12.0, bottom: 8.0, left: 8.0, right: 8.0),
+                          padding: const EdgeInsets.only(
+                            top: 12.0,
+                            bottom: 8.0,
+                            left: 8.0,
+                            right: 8.0,
+                          ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -216,31 +263,50 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
                                 const SizedBox(height: 12),
                                 const Text(
                                   'Last Connected IPs:',
-                                  style: TextStyle(fontSize: 12, color: Colors.grey, fontWeight: FontWeight.bold),
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                                 const SizedBox(height: 6),
                                 Column(
-                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
                                   children: displayRecentIps.map((ip) {
-                                    final bool isCurrent = _ipController.text == ip;
+                                    final bool isCurrent =
+                                        _ipController.text == ip;
                                     return Padding(
-                                      padding: const EdgeInsets.only(bottom: 6.0),
+                                      padding: const EdgeInsets.only(
+                                        bottom: 6.0,
+                                      ),
                                       child: ActionChip(
                                         avatar: Icon(
                                           Icons.history,
                                           size: 16,
-                                          color: isCurrent ? theme.colorScheme.primary : Colors.grey,
+                                          color: isCurrent
+                                              ? theme.colorScheme.primary
+                                              : Colors.grey,
                                         ),
                                         label: Text(
                                           ip,
-                                          style: const TextStyle(fontWeight: FontWeight.w600),
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w600,
+                                          ),
                                         ),
                                         shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(8),
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
                                         ),
-                                        backgroundColor: isCurrent ? theme.colorScheme.primary.withAlpha(40) : null,
+                                        backgroundColor: isCurrent
+                                            ? theme.colorScheme.primary
+                                                  .withAlpha(40)
+                                            : null,
                                         onPressed: () {
-                                          setState(() => _ipController.text = ip);
+                                          setState(
+                                            () => _ipController.text = ip,
+                                          );
                                         },
                                       ),
                                     );
@@ -260,67 +326,84 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
                       _buildOptionTile(
                         type: ConnectionType.direct,
                         title: 'Direct (SoftAP)',
-                        subtitle: 'Connect directly to Mixer internal Wi-Fi Network',
+                        subtitle:
+                            'Connect directly to Mixer internal Wi-Fi Network',
                         icon: Icons.wifi_tethering,
                       ),
                       AnimatedCrossFade(
                         firstChild: const SizedBox(width: double.infinity),
                         secondChild: Padding(
-                          padding: const EdgeInsets.only(top: 12.0, bottom: 8.0, left: 8.0, right: 8.0),
+                          padding: const EdgeInsets.only(
+                            top: 12.0,
+                            bottom: 8.0,
+                            left: 8.0,
+                            right: 8.0,
+                          ),
                           child: Container(
                             padding: const EdgeInsets.all(16),
                             decoration: BoxDecoration(
-                              color: theme.colorScheme.surfaceContainerHighest.withAlpha(120),
+                              color: theme.colorScheme.surfaceContainerHighest
+                                  .withAlpha(80),
                               borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: theme.colorScheme.outline.withAlpha(50)),
                             ),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 const Text(
-                                  'Connect your phone to the Mixer Wi-Fi network in your settings ("OneChannelAudioProcessor").',
+                                  'Connect your phone to the Mixer Wi-Fi network "OneChannelAudioProcessor" before continuing.',
                                   style: TextStyle(fontSize: 13, height: 1.4),
                                 ),
-                                const SizedBox(height: 14),
 
-                                // Action button
-                                OutlinedButton.icon(
-                                  onPressed: _isScanningDirect ? null : _checkDirectApAvailability,
-                                  icon: _isScanningDirect
-                                      ? const SizedBox(
-                                    width: 14,
-                                    height: 14,
-                                    child: CircularProgressIndicator(strokeWidth: 2),
-                                  )
-                                      : const Icon(Icons.refresh, size: 18),
-                                  label: const Text('Check Network'),
-                                ),
+                                if (_isNativeMobileApp) ...[
+                                  const SizedBox(height: 14),
+                                  OutlinedButton.icon(
+                                    onPressed: _isScanningDirect
+                                        ? null
+                                        : _checkDirectApAvailability,
+                                    icon: _isScanningDirect
+                                        ? const SizedBox(
+                                            width: 14,
+                                            height: 14,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                            ),
+                                          )
+                                        : const Icon(Icons.refresh, size: 18),
+                                    label: const Text('Check Network'),
+                                  ),
 
-                                // Status message stacked cleanly underneath the button
-                                if (_isDirectApAvailable != null) ...[
-                                  const SizedBox(height: 10),
-                                  Row(
-                                    children: [
-                                      Icon(
-                                        _isDirectApAvailable! ? Icons.check_circle : Icons.error_outline,
-                                        color: _isDirectApAvailable! ? Colors.green : Colors.orange,
-                                        size: 18,
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Expanded(
-                                        child: Text(
+                                  // Status message stacked cleanly underneath the button
+                                  if (_isDirectApAvailable != null) ...[
+                                    const SizedBox(height: 10),
+                                    Row(
+                                      children: [
+                                        Icon(
                                           _isDirectApAvailable!
-                                              ? 'Mixer Found (192.168.4.1)'
-                                              : 'Network not detected',
-                                          style: TextStyle(
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.bold,
-                                            color: _isDirectApAvailable! ? Colors.green : Colors.orange,
+                                              ? Icons.check_circle
+                                              : Icons.error_outline,
+                                          color: _isDirectApAvailable!
+                                              ? Colors.green
+                                              : Colors.orange,
+                                          size: 18,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            _isDirectApAvailable!
+                                                ? 'Network "$_espSoftApSsid" Found'
+                                                : 'Network not detected',
+                                            style: TextStyle(
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.bold,
+                                              color: _isDirectApAvailable!
+                                                  ? Colors.green
+                                                  : Colors.orange,
+                                            ),
                                           ),
                                         ),
-                                      ),
-                                    ],
-                                  ),
+                                      ],
+                                    ),
+                                  ],
                                 ],
                               ],
                             ),
@@ -331,6 +414,7 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
                             : CrossFadeState.showFirst,
                         duration: const Duration(milliseconds: 300),
                       ),
+                      const SizedBox(height: 12),
 
                       _buildOptionTile(
                         type: ConnectionType.demo,
@@ -341,25 +425,22 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
                       AnimatedCrossFade(
                         firstChild: const SizedBox(width: double.infinity),
                         secondChild: Padding(
-                          padding: const EdgeInsets.only(top: 12.0, bottom: 8.0, left: 8.0, right: 8.0),
+                          padding: const EdgeInsets.only(
+                            top: 12.0,
+                            bottom: 8.0,
+                            left: 8.0,
+                            right: 8.0,
+                          ),
                           child: Container(
                             padding: const EdgeInsets.all(16),
                             decoration: BoxDecoration(
-                              color: Colors.purple.withAlpha(20),
+                              color: theme.colorScheme.surfaceContainerHighest
+                                  .withAlpha(80),
                               borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: Colors.purple.withAlpha(80)),
                             ),
-                            child: const Row(
-                              children: [
-                                Icon(Icons.info_outline, color: Colors.purpleAccent, size: 24),
-                                SizedBox(width: 12),
-                                Expanded(
-                                  child: Text(
-                                    'Demo Mode runs completely offline with simulated audio meters. No hardware connection required.',
-                                    style: TextStyle(fontSize: 13, height: 1.3),
-                                  ),
-                                ),
-                              ],
+                            child: Text(
+                              'Demo Mode runs completely offline with simulated audio meters. No hardware connection required.',
+                              style: TextStyle(fontSize: 13, height: 1.3),
                             ),
                           ),
                         ),
@@ -388,18 +469,18 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
                 ),
                 child: _isLoading
                     ? const SizedBox(
-                  height: 24,
-                  width: 24,
-                  child: CircularProgressIndicator(strokeWidth: 2.5),
-                )
+                        height: 24,
+                        width: 24,
+                        child: CircularProgressIndicator(strokeWidth: 2.5),
+                      )
                     : const Text(
-                  'CONNECT',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1.2,
-                  ),
-                ),
+                        'CONNECT',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.2,
+                        ),
+                      ),
               ),
             ],
           ),
@@ -462,7 +543,9 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
-                        color: isSelected ? theme.colorScheme.onPrimaryContainer : null,
+                        color: isSelected
+                            ? theme.colorScheme.onPrimaryContainer
+                            : null,
                       ),
                     ),
                     const SizedBox(height: 2),
@@ -471,7 +554,9 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
                       style: TextStyle(
                         fontSize: 12,
                         color: isSelected
-                            ? theme.colorScheme.onPrimaryContainer.withAlpha(180)
+                            ? theme.colorScheme.onPrimaryContainer.withAlpha(
+                                180,
+                              )
                             : Colors.grey,
                       ),
                     ),

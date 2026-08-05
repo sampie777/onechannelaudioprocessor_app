@@ -35,6 +35,7 @@ class Esp32ConnectionService extends ChangeNotifier {
   bool get isConnected => _isConnected;
 
   ConnectionType? get activeType => _activeType;
+  ConnectionType? get lastConnectionType => _lastConnectionType;
 
   Future<void> connectWifi(String ipAddress) async {
     dev.log("Connecting to IP address: $ipAddress");
@@ -100,7 +101,7 @@ class Esp32ConnectionService extends ChangeNotifier {
 
     // Periodically generate simulated audio meter peaks
     _demoTimer?.cancel();
-    _demoTimer = Timer.periodic(const Duration(milliseconds: 200), (timer) {
+    _demoTimer = Timer.periodic(const Duration(milliseconds: 50), (timer) {
       if (!_isConnected || _activeType != ConnectionType.demo) return;
 
       // Generate random linear peak values between 0.0 and 1.0
