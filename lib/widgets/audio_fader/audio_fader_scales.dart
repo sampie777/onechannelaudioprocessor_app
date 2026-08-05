@@ -1,19 +1,45 @@
 import 'package:flutter/material.dart';
 
+/// Converts a real dB value to a linear 0.0 - 1.0 slider fraction
+double dbToLinear(List<double> faderStops, double db) {
+  if (db <= faderStops.first) return 0.0;
+  if (db >= faderStops.last) return 1.0;
+
+  for (int i = 0; i < faderStops.length - 1; i++) {
+    if (db >= faderStops[i] && db <= faderStops[i + 1]) {
+      double range = faderStops[i + 1] - faderStops[i];
+      double fraction = (db - faderStops[i]) / range;
+      // Each segment represents an equal 1/6th portion of the physical slider
+      return (i + fraction) / (faderStops.length - 1);
+    }
+  }
+  return 0.0;
+}
+
+/// Converts a 0.0 - 1.0 slider fraction back to a real dB value
+double linearToDb(List<double> faderStops, double linear) {
+  if (linear <= 0.0) return faderStops.first;
+  if (linear >= 1.0) return faderStops.last;
+
+  double scaled = linear * (faderStops.length - 1);
+  int index = scaled.floor();
+  double fraction = scaled - index;
+
+  if (index >= faderStops.length - 1) return faderStops.last;
+
+  return faderStops[index] + fraction * (faderStops[index + 1] - faderStops[index]);
+}
+
 class FaderScalePainter extends CustomPainter {
-  final double min;
-  final double max;
+  final List<double> faderStops;
   final List<double> ticks;
 
   // Must match the overlayRadius of the SliderTheme
-  final double sliderPadding = 30.0;
-
-  // ⬇️ ADJUST THIS OFFSET TO SHIFT THE SCALE UP/DOWN ⬇️
+  final double sliderPadding = 25.0;
   final double topOffset = 0.0;
 
   FaderScalePainter({
-    required this.min,
-    required this.max,
+    required this.faderStops,
     required this.ticks,
   });
 
@@ -23,9 +49,9 @@ class FaderScalePainter extends CustomPainter {
     final paint = Paint()..strokeCap = StrokeCap.round;
 
     for (final tick in ticks) {
-      final fraction = (tick - min) / (max - min);
+      // Use piecewise interpolation instead of linear fraction
+      final fraction = dbToLinear(faderStops, tick);
 
-      // Added the topOffset here so the whole scale shifts down
       final y =
           size.height - sliderPadding - (fraction * trackLength) + topOffset;
 
@@ -70,48 +96,39 @@ class FaderThumbShape extends SliderComponentShape {
 
   @override
   void paint(
-    PaintingContext context,
-    Offset center, {
-    required Animation<double> activationAnimation,
-    required Animation<double> enableAnimation,
-    required bool isDiscrete,
-    required TextPainter labelPainter,
-    required RenderBox parentBox,
-    required SliderThemeData sliderTheme,
-    required TextDirection textDirection,
-    required double value,
-    required double textScaleFactor,
-    required Size sizeWithOverflow,
-  }) {
+      PaintingContext context,
+      Offset center, {
+        required Animation<double> activationAnimation,
+        required Animation<double> enableAnimation,
+        required bool isDiscrete,
+        required TextPainter labelPainter,
+        required RenderBox parentBox,
+        required SliderThemeData sliderTheme,
+        required TextDirection textDirection,
+        required double value,
+        required double textScaleFactor,
+        required Size sizeWithOverflow,
+      }) {
     final Canvas canvas = context.canvas;
 
-    // Define the rectangle for the fader.
-    // Because the slider is inside a RotatedBox(-90deg), the local width (X)
-    // translates to the screen's vertical axis, and local height (Y) translates to horizontal.
     final RRect thumbRect = RRect.fromRectAndRadius(
       Rect.fromCenter(center: center, width: faderWidth, height: faderLength),
-      const Radius.circular(6.0), // Slightly rounded corners
+      const Radius.circular(6.0),
     );
 
-    // 1. Draw a drop shadow to lift it off the track
     canvas.drawShadow(Path()..addRRect(thumbRect), Colors.black, 4.0, true);
 
-    // 2. Draw the main fader body (Light grey like a mixing console)
     final Paint thumbPaint = Paint()..color = Colors.grey.shade300;
     canvas.drawRRect(thumbRect, thumbPaint);
 
-    // 3. Draw the center "grip" line
     final Paint linePaint = Paint()
       ..color = Colors.black87
       ..strokeWidth = 4.0
       ..strokeCap = StrokeCap.round;
 
-    // We draw the line along the local Y axis (which renders horizontally on the screen)
     canvas.drawLine(
       Offset(center.dx, center.dy - (faderLength / 2) + 12),
-      // Start slightly inside the edge
       Offset(center.dx, center.dy + (faderLength / 2) - 12),
-      // End slightly inside the edge
       linePaint,
     );
   }

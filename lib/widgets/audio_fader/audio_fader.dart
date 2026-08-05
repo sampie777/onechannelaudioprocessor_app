@@ -4,9 +4,6 @@ import 'audio_fader_scales.dart';
 
 class AudioFaderWidget extends StatelessWidget {
   final double value;
-  final double min;
-  final double max;
-  final int divisions;
   final bool isMuted;
   final ValueChanged<double> onChanged;
   final VoidCallback onMuteToggled;
@@ -15,17 +12,17 @@ class AudioFaderWidget extends StatelessWidget {
   const AudioFaderWidget({
     super.key,
     required this.value,
-    this.min = -57.0,
-    this.max = 6.0,
-    this.divisions = 63,
     required this.isMuted,
     required this.onChanged,
     required this.onMuteToggled,
-    this.scaleTicks = const [6, 0, -5, -10, -20, -40],
+    this.scaleTicks = const [-60.0, -40.0, -20.0, -10.0, -5.0, 0.0, 6.0],
   });
 
   @override
   Widget build(BuildContext context) {
+    // Convert incoming raw dB value to the continuous 0.0 - 1.0 fraction
+    final sliderFraction = dbToLinear(scaleTicks, value);
+
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
@@ -54,11 +51,15 @@ class AudioFaderWidget extends StatelessWidget {
                   child: RotatedBox(
                     quarterTurns: 3,
                     child: Slider(
-                      value: value.clamp(min, max),
-                      min: min,
-                      max: max,
-                      divisions: divisions,
-                      onChanged: onChanged,
+                      value: sliderFraction, // Now uses 0.0 - 1.0 mapping
+                      min: 0.0,
+                      max: 1.0,
+                      // Removed 'divisions' to allow a smooth analog feel
+                      onChanged: (fraction) {
+                        // Map the fraction back to dB, round to integer, and broadcast
+                        final mappedDb = linearToDb(scaleTicks, fraction).roundToDouble();
+                        onChanged(mappedDb);
+                      },
                     ),
                   ),
                 ),
@@ -68,9 +69,8 @@ class AudioFaderWidget extends StatelessWidget {
                 width: 40,
                 child: CustomPaint(
                   painter: FaderScalePainter(
-                    min: min,
-                    max: max,
                     ticks: scaleTicks,
+                    faderStops: scaleTicks,
                   ),
                 ),
               ),
