@@ -2,8 +2,11 @@ import 'dart:async';
 import 'dart:developer' as dev;
 import 'dart:io';
 
+import 'package:app_settings/app_settings.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:plugin_wifi_connect/plugin_wifi_connect.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:wifi_scan/wifi_scan.dart';
 
@@ -196,8 +199,30 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
   }
 
   // ---------------------------------------------------------------------------
-  // HANDLE CONNECT
+  // PROGRAMMATICALLY CONNECT TO SOFTAP
   // ---------------------------------------------------------------------------
+  Future<bool> _connectToEspSoftAp() async {
+    final String? currentConnectedSsid = (await PluginWifiConnect.ssid)
+        ?.replaceAll('"', '');
+    if (currentConnectedSsid == _espSoftApSsid) {
+      return true;
+    }
+
+    dev.log("Attempting to programmatically connect to $_espSoftApSsid...");
+    try {
+      // 1. Try the plugin connection
+      final bool? isConnected = await PluginWifiConnect.connect(_espSoftApSsid);
+      return isConnected ?? false;
+    } on PlatformException catch (e) {
+      // Catches the unregisterNetworkCallback bug from the plugin!
+      dev.log("Plugin crashed or connection rejected by Android.", error: e);
+      return false;
+    } catch (e) {
+      dev.log("Failed to connect to Wi-Fi network $_espSoftApSsid", error: e);
+      return false;
+    }
+  }
+
   Future<void> _handleConnect() async {
     dev.log("Start new connection attempt...");
 
@@ -210,6 +235,38 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
         await widget.service.connectWifi(ip);
         await _saveSuccessfulIp(ip);
       } else if (_selectedType == ConnectionType.direct) {
+        // Programmatically trigger phone to join ESP32 Wi-Fi network
+        final bool wifiJoined = await _connectToEspSoftAp();
+        if (!wifiJoined) {
+          // FALLBACK: Open Wi-Fi settings and ask the user to connect
+
+          if (!mounted) {
+            // Throw exception to halt the immediate socket connection attempt
+            throw Exception("Waiting for manual Wi-Fi connection...");
+          }
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                "Could not auto-connect. Please select '$_espSoftApSsid' manually.",
+              ),
+              backgroundColor: Colors.orange,
+              duration: const Duration(seconds: 4),
+            ),
+          );
+
+          // Open the native Android/iOS Wi-Fi settings page
+          Future.delayed(const Duration(seconds: 2), () {
+            AppSettings.openAppSettings(type: AppSettingsType.wifi);
+          });
+
+          throw Exception("Waiting for manual Wi-Fi connection...");
+        }
+
+        // Wait brief moment for local IP assignment (DHCP 192.168.4.2)
+        await Future.delayed(const Duration(milliseconds: 1500));
+
+        // 2. Connect WebSockets/UDP to ESP32 Gateway IP
         const ip = "192.168.4.1";
         await widget.service.connectWifi(ip);
       } else if (_selectedType == ConnectionType.demo) {
@@ -227,11 +284,17 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
       dev.log("Failed to create a new connection", error: e);
       await widget.service.disconnect();
 
+      if (e.toString().contains("Waiting for manual Wi-Fi connection")) return;
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Connection failed: ${e.toString()}'),
-            backgroundColor: Colors.red,
+            content: Text(
+              'Connection failed: ${e.toString().replaceAll("Exception: ", "")}',
+            ),
+            backgroundColor: e.toString().contains("manual")
+                ? Colors.blue
+                : Colors.red,
           ),
         );
       }
