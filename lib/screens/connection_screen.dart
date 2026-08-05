@@ -33,7 +33,9 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
 
   // Direct AP Scanning state
   bool _isScanningDirect = false;
+  bool _isScanningListening = false;
   bool? _isDirectApAvailable;
+  StreamSubscription<List<WiFiAccessPoint>>? _subscription;
 
   bool get _isNativeMobileApp =>
       !kIsWeb && (Platform.isAndroid || Platform.isIOS);
@@ -55,6 +57,7 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
   @override
   void dispose() {
     _ipController.dispose();
+    _subscription?.cancel();
     super.dispose();
   }
 
@@ -120,6 +123,7 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
       }
 
       // 2. Trigger active scan
+      dev.log("Starting wifi scan...");
       await WiFiScan.instance.startScan();
 
       // 3. Verify capability to retrieve scanned results
@@ -136,21 +140,8 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
         }
         return;
       }
-
-      // 4. Fetch scan results and check for target SSID
-      final accessPoints = await WiFiScan.instance.getScannedResults();
-      final bool foundTargetAp = accessPoints.any(
-        (ap) => ap.ssid == _espSoftApSsid,
-      );
-
-      if (mounted) {
-        setState(() {
-          _isDirectApAvailable = foundTargetAp;
-          _isScanningDirect = false;
-        });
-      }
     } catch (e) {
-      dev.log("Error during Wi-Fi scan", error: e);
+      dev.log("Error starting Wi-Fi scan", error: e);
       if (mounted) {
         setState(() {
           _isDirectApAvailable = false;
@@ -158,6 +149,50 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
         });
       }
     }
+
+    try {
+      if (_subscription == null) {
+        _subscription = WiFiScan.instance.onScannedResultsAvailable.listen((
+          results,
+        ) {
+          setState(() {
+            _isScanningListening = true;
+          });
+          processWifiScanResults(results);
+        });
+      } else {
+        // Scan instantly if the subscription is already listening
+        final results = await WiFiScan.instance.getScannedResults();
+        processWifiScanResults(results);
+      }
+    } catch (e) {
+      dev.log("Error during Wi-Fi scan", error: e);
+      if (mounted) {
+        setState(() {
+          _isDirectApAvailable = false;
+          _isScanningDirect = false;
+          _isScanningListening = false;
+        });
+      }
+    }
+  }
+
+  void processWifiScanResults(List<WiFiAccessPoint> results) {
+    final bool foundTargetAp = results.any((ap) => ap.ssid == _espSoftApSsid);
+
+    if (mounted) {
+      setState(() {
+        _isDirectApAvailable = foundTargetAp;
+      });
+    }
+
+    Future.delayed(const Duration(milliseconds: 700), () {
+      if (mounted) {
+        setState(() {
+          _isScanningDirect = false;
+        });
+      }
+    });
   }
 
   // ---------------------------------------------------------------------------
@@ -360,15 +395,7 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
                                     onPressed: _isScanningDirect
                                         ? null
                                         : _checkDirectApAvailability,
-                                    icon: _isScanningDirect
-                                        ? const SizedBox(
-                                            width: 14,
-                                            height: 14,
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2,
-                                            ),
-                                          )
-                                        : const Icon(Icons.refresh, size: 18),
+                                    icon: const Icon(Icons.refresh, size: 18),
                                     label: const Text('Check Network'),
                                   ),
 
@@ -377,27 +404,39 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
                                     const SizedBox(height: 10),
                                     Row(
                                       children: [
-                                        Icon(
-                                          _isDirectApAvailable!
-                                              ? Icons.check_circle
-                                              : Icons.error_outline,
-                                          color: _isDirectApAvailable!
-                                              ? Colors.green
-                                              : Colors.orange,
-                                          size: 18,
-                                        ),
+                                        _isDirectApAvailable == true
+                                            ? Icon(
+                                                Icons.check_circle,
+                                                color: Colors.green,
+                                                size: 18,
+                                              )
+                                            : _isScanningDirect ||
+                                                  _isScanningListening
+                                            ? const SizedBox(
+                                                width: 14,
+                                                height: 14,
+                                                child:
+                                                    CircularProgressIndicator(
+                                                      strokeWidth: 2,
+                                                    ),
+                                              )
+                                            : Icon(
+                                                Icons.error_outline,
+                                                color: Colors.orange,
+                                                size: 18,
+                                              ),
                                         const SizedBox(width: 8),
                                         Expanded(
                                           child: Text(
                                             _isDirectApAvailable!
                                                 ? 'Network "$_espSoftApSsid" Found'
-                                                : 'Network not detected',
+                                                : 'Searching for Network...',
                                             style: TextStyle(
                                               fontSize: 13,
                                               fontWeight: FontWeight.bold,
                                               color: _isDirectApAvailable!
                                                   ? Colors.green
-                                                  : Colors.orange,
+                                                  : Colors.grey,
                                             ),
                                           ),
                                         ),
