@@ -104,9 +104,18 @@ class Esp32ConnectionService extends ChangeNotifier {
     _demoTimer = Timer.periodic(const Duration(milliseconds: 50), (timer) {
       if (!_isConnected || _activeType != ConnectionType.demo) return;
 
-      // Generate random linear peak values between 0.0 and 1.0
-      final double rawPeak = pow(_random.nextDouble(), 2).toDouble();
-      final double avgPeak = (rawPeak * 0.6) + (_random.nextDouble() * 0.1);
+      double baseSignal = 0;
+      baseSignal += sin(timer.tick / 20) * 0.1;
+      baseSignal += sin((timer.tick + 3) / 17) * 0.2;
+      baseSignal += sin((timer.tick + 2) / 11) * 0.15;
+      baseSignal += sin(timer.tick / 9) * 0.05;
+      baseSignal += sin(timer.tick / 3) * 0.1;
+      baseSignal += sin(timer.tick / 1) * 0.01;
+      baseSignal += sin(timer.tick / 0.9) * 0.05;
+      baseSignal = baseSignal.abs();
+
+      double rawPeak = baseSignal + pow(_random.nextDouble(), 2).toDouble() * 0.1;
+      double avgPeak = (rawPeak * 0.1) + (_random.nextDouble() * 0.1);;
 
       // Create update payload matching the json format
       final mockJson = {
