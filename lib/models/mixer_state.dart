@@ -238,6 +238,18 @@ class DeviceState extends MixerModule {
   };
 }
 
+class WifiState extends MixerModule {
+  final Lockable<String> ssid = Lockable(
+    "",
+    command: 'wifi.ssid',
+  );
+
+  @override
+  Map<String, Lockable> get properties => {
+    'ssid': ssid,
+  };
+}
+
 // -----------------------------------------------------------------------------
 // NESTED EQ COMPONENTS
 // -----------------------------------------------------------------------------
@@ -404,6 +416,7 @@ class MixerState {
   late final SpeakerState speaker;
   late final ClientState client;
   late final DeviceState device;
+  late final WifiState wifi;
 
   // 2. Module Registry for automated looping
   final Map<String, MixerModule> _modules = {};
@@ -420,6 +433,7 @@ class MixerState {
     speaker = SpeakerState();
     client = ClientState();
     device = DeviceState();
+    wifi = WifiState();
 
     _modules['routing'] = routing;
     _modules['pga'] = pga;
@@ -432,6 +446,7 @@ class MixerState {
     _modules['speaker'] = speaker;
     _modules['client'] = client;
     _modules['device'] = device;
+    _modules['wifi'] = wifi;
   }
 
   double get peakDbfs => rawToDbfs(peakOverPeriod);

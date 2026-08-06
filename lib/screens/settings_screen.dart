@@ -16,6 +16,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final TextEditingController _ssidController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   bool _obscurePassword = true;
+  bool _hasInitialSsidSet = false;
 
   @override
   void dispose() {
@@ -28,15 +29,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final ssid = _ssidController.text.trim();
     final password = _passwordController.text;
 
-    if (ssid.isEmpty) return;
-
-    widget.service.sendCommands({'wifi.ssid': ssid, 'wifi.password': password});
+    widget.service.sendCommands({
+      WifiState().ssid.command: ssid,
+      'wifi.password': password,
+    });
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Wi-Fi credentials updated.')),
     );
-
-    _passwordController.clear();
   }
 
   @override
@@ -48,8 +48,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
         builder: (context, snapshot) {
           final state = snapshot.data ?? MixerState();
 
-          // Fallback properties, adjust to your MixerState model
-          final bool ledsEnabled = state.device.enableStatusLights.value;
+          // Initialize controller with current state SSID once upon loading
+          if (!_hasInitialSsidSet && snapshot.hasData) {
+            _ssidController.text = state.wifi.ssid.value;
+            _hasInitialSsidSet = true;
+          }
+
           int updateInterval = state.client.smallUpdateIntervalMs.value;
 
           return ListView(
@@ -57,11 +61,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
             children: [
               // Wi-Fi Section
               const Text(
-                'Network (STA Mode)',
+                'Network (external Wi-Fi)',
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
                   color: Colors.cyan,
+                ),
+              ),
+              const Text(
+                'Leave empty to disable external Wi-Fi',
+                style: TextStyle(
+                  color: Colors.grey,
                 ),
               ),
               const SizedBox(height: 16),
@@ -128,10 +138,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
               // Update Interval Section
               Text('UI Update Interval: ${updateInterval}ms'),
               Slider(
-                value: updateInterval.toDouble().clamp(30, 1000),
-                min: 30,
+                value: updateInterval.toDouble().clamp(50, 1000),
+                min: 50,
                 max: 1000,
-                divisions: 1000 - 30,
+                divisions: ((1000 - 50) / 50).toInt(),
                 label: '${updateInterval}ms',
                 onChanged: (val) {
                   // Only update UI locally during drag, send on end to prevent network spam
