@@ -33,7 +33,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     widget.service.sendCommands({'wifi.ssid': ssid, 'wifi.password': password});
 
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Wi-Fi credentials sent to ESP32.')),
+      const SnackBar(content: Text('Wi-Fi credentials updated.')),
     );
 
     _passwordController.clear();
@@ -119,7 +119,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 activeColor: Colors.cyan,
                 onChanged: (val) {
                   widget.service.sendCommands({
-                    'device.enable_status_lights': val ? 't' : 'f',
+                    state.device.enableStatusLights.command: val ? 't' : 'f',
                   });
                 },
               ),
@@ -139,7 +139,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 },
                 onChangeEnd: (val) {
                   widget.service.sendCommands({
-                    'client.small_update_interval_ms': val.toInt().toString(),
+                    state.client.smallUpdateIntervalMs.command: val.toInt().toString(),
                   });
                 },
               ),

@@ -15,38 +15,62 @@ class EqScreen extends StatefulWidget {
 }
 
 class _EqScreenState extends State<EqScreen> {
-  static const List<int> _highPassFreqs = [4, 122, 153, 156, 245, 306, 392, 490, 612];
+  static const List<int> _highPassFreqs = [
+    4,
+    122,
+    153,
+    156,
+    245,
+    306,
+    392,
+    490,
+    612,
+  ];
   static const List<int> _lowShelfFreqs = [80, 105, 135, 175];
   static const List<int> _lowFreqs = [230, 300, 385, 500];
   static const List<int> _midFreqs = [650, 850, 1100, 1400];
   static const List<int> _highFreqs = [1800, 2400, 3200, 4100];
   static const List<int> _highShelfFreqs = [5300, 6900, 9000, 11700];
 
-  void _sendEqCommand(String band, String param, String value) {
-    widget.service.sendCommands({'eq.$band.$param': value});
-  }
+  void _resetBand(
+    String band,
+    dynamic filter,
+    int defaultFreq, {
+    bool isParametric = false,
+  }) {
+    final Map<String, String> commands = {};
 
-  void _resetBand(String band, dynamic filter, int defaultFreq, {bool isParametric = false}) {
     // Clear client-side bypass memory
     if (filter is ShelfFilter || filter is ParametricEqBand) {
       filter.isBypassed = false;
       filter.storedGain = 0;
     }
 
-    final Map<String, String> commands = {
-      'eq.$band.frequency': defaultFreq.toString(),
-      'eq.$band.gain': '0',
-    };
-    if (isParametric) commands['eq.$band.band'] = 'narrow';
+    if (filter is HighPassFilter) {
+      commands.addAll({
+        filter.frequency.command: defaultFreq.toString(),
+        filter.enabled.command: 't',
+      });
+    } else if (filter is ShelfFilter) {
+      commands.addAll({
+        filter.frequency.command: defaultFreq.toString(),
+        filter.gain.command: '0',
+      });
+    } else if (filter is ParametricEqBand) {
+      commands.addAll({
+        filter.frequency.command: defaultFreq.toString(),
+        filter.gain.command: '0',
+        filter.band.command: 'narrow',
+      });
+    }
+
     widget.service.sendCommands(commands);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('6-Band EQ'),
-      ),
+      appBar: AppBar(title: const Text('6-Band EQ')),
       body: StreamBuilder<MixerState>(
         stream: widget.service.stateStream,
         builder: (context, snapshot) {
@@ -64,9 +88,7 @@ class _EqScreenState extends State<EqScreen> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(16.0),
                 color: Theme.of(context).scaffoldBackgroundColor,
-                child: CustomPaint(
-                  painter: EqCurvePainter(eqState: eq),
-                ),
+                child: CustomPaint(painter: EqCurvePainter(eqState: eq)),
               ),
               const Divider(height: 1, thickness: 1),
 
@@ -76,15 +98,30 @@ class _EqScreenState extends State<EqScreen> {
                   children: [
                     _buildHighPassCard(eq.highPass),
                     const SizedBox(height: 16),
-                    _buildShelfCard('Low Shelf', 'low_shelf', eq.lowShelf, _lowShelfFreqs),
+                    _buildShelfCard(
+                      'Low Shelf',
+                      'low_shelf',
+                      eq.lowShelf,
+                      _lowShelfFreqs,
+                    ),
                     const SizedBox(height: 16),
                     _buildParametricCard('Low Band', 'low', eq.low, _lowFreqs),
                     const SizedBox(height: 16),
                     _buildParametricCard('Mid Band', 'mid', eq.mid, _midFreqs),
                     const SizedBox(height: 16),
-                    _buildParametricCard('High Band', 'high', eq.high, _highFreqs),
+                    _buildParametricCard(
+                      'High Band',
+                      'high',
+                      eq.high,
+                      _highFreqs,
+                    ),
                     const SizedBox(height: 16),
-                    _buildShelfCard('High Shelf', 'high_shelf', eq.highShelf, _highShelfFreqs),
+                    _buildShelfCard(
+                      'High Shelf',
+                      'high_shelf',
+                      eq.highShelf,
+                      _highShelfFreqs,
+                    ),
                   ],
                 ),
               ),
@@ -95,7 +132,7 @@ class _EqScreenState extends State<EqScreen> {
     );
   }
 
-  Widget _buildHighPassCard(HighPassFilter hpf) {
+  Widget _buildHighPassCard(HighPassFilter filter) {
     return Card(
       elevation: 2,
       child: Padding(
@@ -104,28 +141,35 @@ class _EqScreenState extends State<EqScreen> {
           children: [
             Row(
               children: [
-                const Text('High Pass Filter', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                const Text(
+                  'High Pass Filter',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
                 const Spacer(),
                 IconButton(
                   icon: const Icon(Icons.refresh),
                   tooltip: 'Reset Band',
                   onPressed: () => widget.service.sendCommands({
-                    'eq.high_pass.enabled': 'f',
-                    'eq.high_pass.frequency': hpf.defaultFreq.toString() // Use model default
+                    filter.enabled.command: 't',
+                    filter.frequency.command: filter.defaultFreq.toString(),
                   }),
                 ),
                 Switch(
-                  value: hpf.enabled.value, // HPF uses hardware enable
-                  onChanged: (val) => _sendEqCommand('high_pass', 'enabled', val ? 't' : 'f'),
+                  value: filter.enabled.value, // HPF uses hardware enable
+                  onChanged: (val) => widget.service.sendCommands({
+                    filter.enabled.command: val ? 't' : 'f',
+                  }),
                 ),
               ],
             ),
             _buildDiscreteSliderRow(
               label: 'Freq',
-              value: hpf.frequency.value,
+              value: filter.frequency.value,
               allowedValues: _highPassFreqs,
               unit: 'Hz',
-              onChanged: (val) => _sendEqCommand('high_pass', 'frequency', val.toString()),
+              onChanged: (val) => widget.service.sendCommands({
+                filter.frequency.command: val.toString(),
+              }),
             ),
           ],
         ),
@@ -133,7 +177,12 @@ class _EqScreenState extends State<EqScreen> {
     );
   }
 
-  Widget _buildShelfCard(String title, String bandKey, ShelfFilter filter, List<int> allowedFreqs) {
+  Widget _buildShelfCard(
+    String title,
+    String bandKey,
+    ShelfFilter filter,
+    List<int> allowedFreqs,
+  ) {
     return Card(
       elevation: 2,
       child: Padding(
@@ -142,23 +191,32 @@ class _EqScreenState extends State<EqScreen> {
           children: [
             Row(
               children: [
-                Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
                 const Spacer(),
                 IconButton(
                   icon: const Icon(Icons.refresh),
                   tooltip: 'Reset Band',
-                  onPressed: () => _resetBand(bandKey, filter, filter.defaultFreq,),
+                  onPressed: () =>
+                      _resetBand(bandKey, filter, filter.defaultFreq),
                 ),
                 Switch(
                   value: !filter.isBypassed,
                   onChanged: (enabled) {
                     if (enabled) {
                       filter.isBypassed = false;
-                      _sendEqCommand(bandKey, 'gain', filter.storedGain.toString());
+                      widget.service.sendCommands({
+                        filter.gain.command: filter.storedGain.toString(),
+                      });
                     } else {
                       filter.storedGain = filter.uiGain;
                       filter.isBypassed = true;
-                      _sendEqCommand(bandKey, 'gain', '0'); // Mute on ESP32
+                      widget.service.sendCommands({filter.gain.command: '0'});
                     }
                   },
                 ),
@@ -169,7 +227,9 @@ class _EqScreenState extends State<EqScreen> {
               value: filter.frequency.value,
               allowedValues: allowedFreqs,
               unit: 'Hz',
-              onChanged: (val) => _sendEqCommand(bandKey, 'frequency', val.toString()),
+              onChanged: (val) => widget.service.sendCommands({
+                filter.frequency.command: val.toString(),
+              }),
             ),
             _buildGainSliderRow(
               label: 'Gain',
@@ -179,7 +239,9 @@ class _EqScreenState extends State<EqScreen> {
                   // Only update locally if bypassed to prevent un-bypassing
                   setState(() => filter.storedGain = val);
                 } else {
-                  _sendEqCommand(bandKey, 'gain', val.toString());
+                  widget.service.sendCommands({
+                    filter.gain.command: val.toString(),
+                  });
                 }
               },
             ),
@@ -189,7 +251,12 @@ class _EqScreenState extends State<EqScreen> {
     );
   }
 
-  Widget _buildParametricCard(String title, String bandKey, ParametricEqBand band, List<int> allowedFreqs) {
+  Widget _buildParametricCard(
+    String title,
+    String bandKey,
+    ParametricEqBand filter,
+    List<int> allowedFreqs,
+  ) {
     return Card(
       elevation: 2,
       child: Padding(
@@ -198,23 +265,36 @@ class _EqScreenState extends State<EqScreen> {
           children: [
             Row(
               children: [
-                Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
                 const Spacer(),
                 IconButton(
                   icon: const Icon(Icons.refresh),
                   tooltip: 'Reset Band',
-                  onPressed: () => _resetBand(bandKey, band, band.defaultFreq, isParametric: true),
+                  onPressed: () => _resetBand(
+                    bandKey,
+                    filter,
+                    filter.defaultFreq,
+                    isParametric: true,
+                  ),
                 ),
                 Switch(
-                  value: !band.isBypassed,
+                  value: !filter.isBypassed,
                   onChanged: (enabled) {
                     if (enabled) {
-                      band.isBypassed = false;
-                      _sendEqCommand(bandKey, 'gain', band.storedGain.toString());
+                      filter.isBypassed = false;
+                      widget.service.sendCommands({
+                        filter.gain.command: filter.storedGain.toString(),
+                      });
                     } else {
-                      band.storedGain = band.uiGain;
-                      band.isBypassed = true;
-                      _sendEqCommand(bandKey, 'gain', '0');
+                      filter.storedGain = filter.uiGain;
+                      filter.isBypassed = true;
+                      widget.service.sendCommands({filter.gain.command: '0'});
                     }
                   },
                 ),
@@ -227,28 +307,36 @@ class _EqScreenState extends State<EqScreen> {
                   ButtonSegment(value: 'narrow', label: Text('Narrow')),
                   ButtonSegment(value: 'wide', label: Text('Wide')),
                 ],
-                selected: {band.band.value.isEmpty ? 'narrow' : band.band.value},
+                selected: {
+                  filter.band.value.isEmpty ? 'narrow' : filter.band.value,
+                },
                 onSelectionChanged: (Set<String> newSelection) {
-                  _sendEqCommand(bandKey, 'band', newSelection.first);
+                  widget.service.sendCommands({
+                    filter.band.command: newSelection.first,
+                  });
                 },
               ),
             ),
             const SizedBox(height: 12),
             _buildDiscreteSliderRow(
               label: 'Freq',
-              value: band.frequency.value,
+              value: filter.frequency.value,
               allowedValues: allowedFreqs,
               unit: 'Hz',
-              onChanged: (val) => _sendEqCommand(bandKey, 'frequency', val.toString()),
+              onChanged: (val) => widget.service.sendCommands({
+                filter.frequency.command: val.toString(),
+              }),
             ),
             _buildGainSliderRow(
               label: 'Gain',
-              value: band.uiGain,
+              value: filter.uiGain,
               onChanged: (val) {
-                if (band.isBypassed) {
-                  setState(() => band.storedGain = val);
+                if (filter.isBypassed) {
+                  setState(() => filter.storedGain = val);
                 } else {
-                  _sendEqCommand(bandKey, 'gain', val.toString());
+                  widget.service.sendCommands({
+                    filter.gain.command: val.toString(),
+                  });
                 }
               },
             ),
@@ -270,7 +358,13 @@ class _EqScreenState extends State<EqScreen> {
 
     return Row(
       children: [
-        SizedBox(width: 50, child: Text(label, style: const TextStyle(fontWeight: FontWeight.w500))),
+        SizedBox(
+          width: 50,
+          child: Text(
+            label,
+            style: const TextStyle(fontWeight: FontWeight.w500),
+          ),
+        ),
         Expanded(
           child: Slider(
             value: index.toDouble(),
@@ -280,7 +374,13 @@ class _EqScreenState extends State<EqScreen> {
             onChanged: (newIndex) => onChanged(allowedValues[newIndex.toInt()]),
           ),
         ),
-        SizedBox(width: 65, child: Text('${allowedValues[index]} $unit', textAlign: TextAlign.right)),
+        SizedBox(
+          width: 65,
+          child: Text(
+            '${allowedValues[index]} $unit',
+            textAlign: TextAlign.right,
+          ),
+        ),
       ],
     );
   }
@@ -295,7 +395,13 @@ class _EqScreenState extends State<EqScreen> {
     final clampedValue = value.toDouble().clamp(min, max);
     return Row(
       children: [
-        SizedBox(width: 50, child: Text(label, style: const TextStyle(fontWeight: FontWeight.w500))),
+        SizedBox(
+          width: 50,
+          child: Text(
+            label,
+            style: const TextStyle(fontWeight: FontWeight.w500),
+          ),
+        ),
         Expanded(
           child: LayoutBuilder(
             builder: (context, constraints) {
@@ -304,8 +410,10 @@ class _EqScreenState extends State<EqScreen> {
 
               // The default horizontal padding of a Material Slider is 24px on each side
               const double trackPadding = 26.0;
-              final double trackWidth = constraints.maxWidth - (trackPadding * 2);
-              final double leftPosition = trackPadding + (trackWidth * fraction);
+              final double trackWidth =
+                  constraints.maxWidth - (trackPadding * 2);
+              final double leftPosition =
+                  trackPadding + (trackWidth * fraction);
 
               return Stack(
                 alignment: Alignment.center,
@@ -313,7 +421,8 @@ class _EqScreenState extends State<EqScreen> {
                   // Only draw the tick mark if 0 dB is actually within the slider's range
                   if (min <= 0 && max >= 0)
                     Positioned(
-                      left: leftPosition - 1, // Offset by half the line width (2px) to center it
+                      left: leftPosition - 1,
+                      // Offset by half the line width (2px) to center it
                       child: Container(
                         width: 2,
                         height: 30, // Slightly taller than the slider track
@@ -335,9 +444,12 @@ class _EqScreenState extends State<EqScreen> {
                 ],
               );
             },
-          )
+          ),
         ),
-        SizedBox(width: 65, child: Text('${clampedValue.toInt()} dB', textAlign: TextAlign.right)),
+        SizedBox(
+          width: 65,
+          child: Text('${clampedValue.toInt()} dB', textAlign: TextAlign.right),
+        ),
       ],
     );
   }
@@ -373,7 +485,10 @@ class EqCurvePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final bgPaint = Paint()..color = Colors.black87;
-    canvas.drawRRect(RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(12)), bgPaint);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(12)),
+      bgPaint,
+    );
 
     _drawGridAndLabels(canvas, size);
 
@@ -436,14 +551,27 @@ class EqCurvePainter extends CustomPainter {
 
   // --- Grid drawing ---
   void _drawGridAndLabels(Canvas canvas, Size size) {
-    final gridPaint = Paint()..color = Colors.white12..strokeWidth = 1;
+    final gridPaint = Paint()
+      ..color = Colors.white12
+      ..strokeWidth = 1;
     final textStyle = const TextStyle(color: Colors.white54, fontSize: 10);
 
     final yZero = _dbToY(0, size.height);
-    canvas.drawLine(Offset(0, yZero), Offset(size.width, yZero), Paint()..color = Colors.white30..strokeWidth = 1.5);
+    canvas.drawLine(
+      Offset(0, yZero),
+      Offset(size.width, yZero),
+      Paint()
+        ..color = Colors.white30
+        ..strokeWidth = 1.5,
+    );
 
     _drawText(canvas, '+12', Offset(4, _dbToY(12, size.height) - 6), textStyle);
-    _drawText(canvas, '-12', Offset(4, _dbToY(-12, size.height) - 6), textStyle);
+    _drawText(
+      canvas,
+      '-12',
+      Offset(4, _dbToY(-12, size.height) - 6),
+      textStyle,
+    );
 
     final List<int> gridFreqs = [50, 100, 500, 1000, 5000, 10000];
     for (var f in gridFreqs) {
@@ -456,7 +584,10 @@ class EqCurvePainter extends CustomPainter {
   }
 
   void _drawText(Canvas canvas, String text, Offset offset, TextStyle style) {
-    final tp = TextPainter(text: TextSpan(text: text, style: style), textDirection: TextDirection.ltr);
+    final tp = TextPainter(
+      text: TextSpan(text: text, style: style),
+      textDirection: TextDirection.ltr,
+    );
     tp.layout();
     tp.paint(canvas, offset);
   }
@@ -504,8 +635,11 @@ class EqCurvePainter extends CustomPainter {
     return gain * exp(-(logDist * logDist) * (q * 4.0));
   }
 
-  double _xToFreq(double x, double width) => minFreq * pow(maxFreq / minFreq, x / width);
-  double _freqToX(double f, double width) => width * (log(f / minFreq) / log(maxFreq / minFreq));
+  double _xToFreq(double x, double width) =>
+      minFreq * pow(maxFreq / minFreq, x / width);
+
+  double _freqToX(double f, double width) =>
+      width * (log(f / minFreq) / log(maxFreq / minFreq));
 
   double _dbToY(double db, double height) {
     final double clampedDb = db.clamp(minDb, maxDb);

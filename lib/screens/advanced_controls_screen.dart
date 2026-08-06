@@ -116,17 +116,17 @@ class AdvancedControlsScreen extends StatelessWidget {
                   final String newSource = set.first;
                   if (newSource == 'xlr') {
                     service.sendCommands({
-                      'routing.mic_to_pga': 't',
-                      'routing.line_mono_to_pga': 'f',
-                      'routing.line_stereo_to_pga': 'f',
+                      state.routing.micToPga.command: 't',
+                      state.routing.lineMonoToPga.command: 'f',
+                      state.routing.lineStereoToPga.command: 'f',
                     });
                   } else {
                     service.sendCommands({
-                      'routing.mic_to_pga': 'f',
-                      'routing.line_mono_to_pga': inputMode == 'mono'
+                      state.routing.micToPga.command: 'f',
+                      state.routing.lineMonoToPga.command: inputMode == 'mono'
                           ? 't'
                           : 'f',
-                      'routing.line_stereo_to_pga': inputMode == 'stereo'
+                      state.routing.lineStereoToPga.command: inputMode == 'stereo'
                           ? 't'
                           : 'f',
                     });
@@ -160,11 +160,11 @@ class AdvancedControlsScreen extends StatelessWidget {
                     : (set) {
                         final String newMode = set.first;
                         service.sendCommands({
-                          'routing.mic_to_pga': 'f',
-                          'routing.line_mono_to_pga': newMode == 'mono'
+                          state.routing.micToPga.command: 'f',
+                          state.routing.lineMonoToPga.command: newMode == 'mono'
                               ? 't'
                               : 'f',
-                          'routing.line_stereo_to_pga': newMode == 'stereo'
+                          state.routing.lineStereoToPga.command: newMode == 'stereo'
                               ? 't'
                               : 'f',
                         });
@@ -215,13 +215,13 @@ class AdvancedControlsScreen extends StatelessWidget {
                   final String newMode = set.first;
                   if (newMode == 'mono') {
                     service.sendCommands({
-                      'mixer.mono': 't',
-                      'speaker.balanced': 't',
+                      state.mixer.mono.command: 't',
+                      state.speaker.balanced.command: 't',
                     });
                   } else {
                     service.sendCommands({
-                      'mixer.mono': 'f',
-                      'speaker.balanced': 'f',
+                      state.mixer.mono.command: 'f',
+                      state.speaker.balanced.command: 'f',
                     });
                   }
                 },

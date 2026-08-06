@@ -138,7 +138,8 @@ class _MixerScreenState extends State<MixerScreen> {
             onPressed: () {
               Navigator.of(context).push(
                 MaterialPageRoute(
-                  builder: (_) => AdvancedControlsScreen(service: widget.service),
+                  builder: (_) =>
+                      AdvancedControlsScreen(service: widget.service),
                 ),
               );
             },
@@ -198,17 +199,25 @@ class _MixerScreenState extends State<MixerScreen> {
                         showVolumeValueText: false,
                         value: state.dac.volume.value.toDouble(),
                         isMuted: state.speaker.mute.value,
-                        scaleTicks: const [-127, -80.0, -40.0, -20.0, -10.0, -5.0, 0.0],
+                        scaleTicks: const [
+                          -127,
+                          -80.0,
+                          -40.0,
+                          -20.0,
+                          -10.0,
+                          -5.0,
+                          0.0,
+                        ],
                         onChanged: (val) {
                           // Limit to 0.5 dB interval changes
                           double value = (val * 2).toInt().toDouble() / 2;
                           widget.service.sendCommands({
-                            'dac.volume': value.toStringAsFixed(1),
+                            state.dac.volume.command: value.toStringAsFixed(1),
                           });
                         },
                         onMuteToggled: () {
                           widget.service.sendCommands({
-                            'speaker.mute': state.speaker.mute.value
+                            state.speaker.mute.command: state.speaker.mute.value
                                 ? 'f'
                                 : 't',
                           });
