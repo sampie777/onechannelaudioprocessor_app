@@ -163,71 +163,29 @@ class _MixerScreenState extends State<MixerScreen> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
-                    // --- AUDIO METER + SCALE ---
-                    Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Expanded(
-                          child: Row(
-                            children: [
-                              AudioMeterWidget(
-                                peak: state.peakOverPeriod,
-                                width: 20,
-                                label: "Max",
-                              ),
-                              AudioMeterWidget(
-                                peak: state.avgPeakOverPeriod,
-                                width: 20,
-                                label: "Avg",
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
+                    AudioMeterWidget(
+                      peak: state.peakOverPeriod,
+                      width: 20,
+                      label: "Max",
                     ),
 
                     Expanded(
-                      child: Row(
-                        children: [
-                          AudioFaderWidget(
-                            value: state.pga.gain.value.toDouble(),
-                            isMuted: state.pga.mute.value,
-                            onChanged: (val) {
-                              widget.service.sendCommands({
-                                'pga.gain': val.toInt().toString(),
-                              });
-                            },
-                            onMuteToggled: () {
-                              widget.service.sendCommands({
-                                'pga.mute': state.pga.mute.value ? 'f' : 't',
-                              });
-                            },
-                          ),
-                          AudioFaderWidget(
-                            value: state.adc.volume.value.toDouble(),
-                            onChanged: (val) {
-                              widget.service.sendCommands({
-                                'adc.volume': val.toInt().toString(),
-                              });
-                            },
-                          ),
-                          AudioFaderWidget(
-                            value: state.speaker.volume.value.toDouble(),
-                            isMuted: state.speaker.mute.value,
-                            onChanged: (val) {
-                              widget.service.sendCommands({
-                                'speaker.volume': val.toInt().toString(),
-                              });
-                            },
-                            onMuteToggled: () {
-                              widget.service.sendCommands({
-                                'speaker.mute': state.speaker.mute.value
-                                    ? 'f'
-                                    : 't',
-                              });
-                            },
-                          ),
-                        ],
+                      child: AudioFaderWidget(
+                        showVolumeValueText: false,
+                        value: state.dac.volume.value.toDouble(),
+                        isMuted: state.speaker.mute.value,
+                        onChanged: (val) {
+                          widget.service.sendCommands({
+                            'dac.volume': val.toInt().toString(),
+                          });
+                        },
+                        onMuteToggled: () {
+                          widget.service.sendCommands({
+                            'speaker.mute': state.speaker.mute.value
+                                ? 'f'
+                                : 't',
+                          });
+                        },
                       ),
                     ),
                   ],

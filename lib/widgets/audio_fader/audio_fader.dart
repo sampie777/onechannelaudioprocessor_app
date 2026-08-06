@@ -6,6 +6,7 @@ import 'audio_mute_button.dart';
 class AudioFaderWidget extends StatelessWidget {
   final double value;
   final bool? isMuted;
+  final bool showVolumeValueText;
   final ValueChanged<double> onChanged;
   final VoidCallback? onMuteToggled;
   final List<double> scaleTicks;
@@ -17,6 +18,7 @@ class AudioFaderWidget extends StatelessWidget {
     this.isMuted,
     this.onMuteToggled,
     this.scaleTicks = const [-60.0, -40.0, -20.0, -10.0, -5.0, 0.0, 6.0],
+    this.showVolumeValueText = true,
   });
 
   @override
@@ -81,12 +83,14 @@ class AudioFaderWidget extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(height: 16),
-        // dB Readout
-        Text(
-          '${value.toInt()} dB',
-          style: Theme.of(context).textTheme.titleMedium,
-        ),
+        if (showVolumeValueText) ...[
+          const SizedBox(height: 16),
+          // dB Readout
+          Text(
+            '${value.toInt()} dB',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+        ],
         const SizedBox(height: 16),
 
         isMuted != null && onMuteToggled != null
