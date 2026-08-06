@@ -18,30 +18,18 @@ class AdvancedControlsScreen extends StatelessWidget {
         builder: (context, snapshot) {
           final state = snapshot.data ?? MixerState();
 
-          // -------------------------------------------------------------------
-          // DERIVE UI STATE FROM HARDWARE FLAGS
-          // -------------------------------------------------------------------
-          final double inputGain = state.pga.gain.value.toDouble();
-          final double outputVolume = state.speaker.volume.value.toDouble();
-
-          // Derive Input Source
           final bool isXlr = state.routing.micToPga.value;
           final String inputSource = isXlr ? 'xlr' : 'jack';
 
-          // Derive Input Mode (Only relevant for Jack)
           final bool isLineStereo = state.routing.lineStereoToPga.value;
           final String inputMode = isLineStereo ? 'stereo' : 'mono';
 
-          // Derive Output Mode
           final bool isOutputMono = state.mixer.mono.value;
           final String outputMode = isOutputMono ? 'mono' : 'stereo';
 
           return ListView(
             padding: const EdgeInsets.all(24.0),
             children: [
-              // ---------------------------------------------------------------
-              // INPUT SECTION
-              // ---------------------------------------------------------------
               const Text(
                 'Input Settings',
                 style: TextStyle(
@@ -55,9 +43,71 @@ class AdvancedControlsScreen extends StatelessWidget {
               const Text('Source Selection'),
               const SizedBox(height: 8),
               SegmentedButton<String>(
-                segments: const [
-                  ButtonSegment(value: 'xlr', label: Text('XLR')),
-                  ButtonSegment(value: 'jack', label: Text('1/4" Jack')),
+                style: SegmentedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+                segments: [
+                  ButtonSegment(
+                    value: 'xlr',
+                    label: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 6.0),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          SizedBox(
+                            width: 36,
+                            height: 36,
+                            child: CustomPaint(
+                              painter: XlrConnectorPainter(
+                                isDetected: state.device.inputXlrDetected.value,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Text(
+                                'XLR',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  ButtonSegment(
+                    value: 'jack',
+                    label: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 6.0),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          SizedBox(
+                            width: 40,
+                            height: 28,
+                            child: CustomPaint(
+                              painter: JackConnectorPainter(
+                                isDetected:
+                                    state.device.inputJackDetected.value,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Text(
+                                '1/4" Jack',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 ],
                 selected: {inputSource},
                 onSelectionChanged: (set) {
@@ -69,7 +119,6 @@ class AdvancedControlsScreen extends StatelessWidget {
                       'routing.line_stereo_to_pga': 'f',
                     });
                   } else {
-                    // Switching to Jack: Restore the previously active mono/stereo mode
                     service.sendCommands({
                       'routing.mic_to_pga': 'f',
                       'routing.line_mono_to_pga': inputMode == 'mono'
@@ -87,15 +136,23 @@ class AdvancedControlsScreen extends StatelessWidget {
               const Text('Input Mode'),
               const SizedBox(height: 8),
               SegmentedButton<String>(
-                segments: const [
+                segments: [
                   ButtonSegment(
                     value: 'stereo',
-                    label: Text('Stereo / Unbalanced'),
+                    label: Text(
+                      'Stereo / Unbalanced',
+                      textAlign: TextAlign.center,
+                    ),
+                    tooltip: !isXlr
+                        ? null
+                        : 'Stereo is only available for the 1/4" TRS Jack input. Although it is possible to send a stereo signal over a single XLR cable, it is in the same category as walking outside on your socks. Therefore, by not supporting it, we encourage good behaviour.',
                   ),
-                  ButtonSegment(value: 'mono', label: Text('Mono / Balanced')),
+                  ButtonSegment(
+                    value: 'mono',
+                    label: Text('Mono / Balanced', textAlign: TextAlign.center),
+                  ),
                 ],
                 selected: {inputMode},
-                // Disable the mode switch when XLR is selected since XLR handles its own routing
                 onSelectionChanged: isXlr
                     ? null
                     : (set) {
@@ -125,9 +182,6 @@ class AdvancedControlsScreen extends StatelessWidget {
 
               const Divider(height: 48),
 
-              // ---------------------------------------------------------------
-              // OUTPUT SECTION
-              // ---------------------------------------------------------------
               const Text(
                 'Output Settings',
                 style: TextStyle(
@@ -144,9 +198,15 @@ class AdvancedControlsScreen extends StatelessWidget {
                 segments: const [
                   ButtonSegment(
                     value: 'stereo',
-                    label: Text('Stereo / Unbalanced'),
+                    label: Text(
+                      'Stereo / Unbalanced',
+                      textAlign: TextAlign.center,
+                    ),
                   ),
-                  ButtonSegment(value: 'mono', label: Text('Mono / Balanced')),
+                  ButtonSegment(
+                    value: 'mono',
+                    label: Text('Mono / Balanced', textAlign: TextAlign.center),
+                  ),
                 ],
                 selected: {outputMode},
                 onSelectionChanged: (set) {
@@ -179,4 +239,109 @@ class AdvancedControlsScreen extends StatelessWidget {
       ),
     );
   }
+}
+
+// -----------------------------------------------------------------------------
+// LARGE FRONT-VIEW XLR CONNECTOR PAINTER
+// -----------------------------------------------------------------------------
+class XlrConnectorPainter extends CustomPainter {
+  final bool isDetected;
+
+  XlrConnectorPainter({required this.isDetected});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final double radius = size.width / 2;
+    final Offset center = Offset(radius, size.height / 2);
+    final Color mainColor = isDetected ? Colors.greenAccent : Colors.white70;
+
+    // Outer Circle Shell
+    final Paint outerPaint = Paint()
+      ..color = mainColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.5;
+    canvas.drawCircle(center, radius - 2, outerPaint);
+
+    // Inner Notch (Top of XLR socket)
+    final Paint notchPaint = Paint()
+      ..color = mainColor
+      ..style = PaintingStyle.fill;
+    final Path notchPath = Path()
+      ..addRect(Rect.fromLTWH(center.dx - 2.5, center.dy - radius + 2, 5, 4));
+    canvas.drawPath(notchPath, notchPaint);
+
+    // 3 Female Socket Pins
+    final Paint pinPaint = Paint()
+      ..color = mainColor
+      ..style = PaintingStyle.fill;
+
+    final List<Offset> pinPositions = [
+      Offset(center.dx - (radius * 0.42), center.dy - (radius * 0.15)),
+      Offset(center.dx + (radius * 0.42), center.dy - (radius * 0.15)),
+      Offset(center.dx, center.dy + (radius * 0.45)),
+    ];
+
+    for (final pos in pinPositions) {
+      canvas.drawCircle(pos, 2.8, pinPaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant XlrConnectorPainter oldDelegate) =>
+      oldDelegate.isDetected != isDetected;
+}
+
+// -----------------------------------------------------------------------------
+// LARGE SIDE-VIEW 1/4" JACK CONNECTOR PAINTER
+// -----------------------------------------------------------------------------
+class JackConnectorPainter extends CustomPainter {
+  final bool isDetected;
+
+  JackConnectorPainter({required this.isDetected});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final Color mainColor = isDetected ? Colors.greenAccent : Colors.white70;
+    final Paint strokePaint = Paint()
+      ..color = mainColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.2
+      ..strokeJoin = StrokeJoin.round;
+
+    final Paint fillPaint = Paint()
+      ..color = mainColor
+      ..style = PaintingStyle.fill;
+
+    final double midY = size.height / 2;
+
+    // 1. Heavy Base Handle / Sleeve
+    canvas.drawRect(Rect.fromLTWH(1, midY - 9, 10, 18), fillPaint);
+
+    // 2. Main Shaft
+    canvas.drawRect(Rect.fromLTWH(10, midY - 5.5, 22, 11), strokePaint);
+
+    // 3. TRS Insulator Ring Line
+    canvas.drawLine(
+      Offset(24, midY - 5.5),
+      Offset(24, midY + 5.5),
+      strokePaint,
+    );
+
+    // 4. Jack Tip (Notched Arrow Point)
+    final double offsetX = 32;
+    final Path tipPath = Path()
+      ..moveTo(offsetX, midY - 5.5)
+      ..lineTo(offsetX + 4, midY - 4.0)
+      ..lineTo(offsetX + 10, midY - 2.0)
+      ..lineTo(offsetX + 10, midY + 2.0)
+      ..lineTo(offsetX + 4, midY + 4.0)
+      ..lineTo(offsetX, midY + 5.5)
+      ..close();
+
+    canvas.drawPath(tipPath, strokePaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant JackConnectorPainter oldDelegate) =>
+      oldDelegate.isDetected != isDetected;
 }

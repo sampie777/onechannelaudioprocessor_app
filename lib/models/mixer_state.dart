@@ -217,22 +217,24 @@ class ClientState extends MixerModule {
 class DeviceState extends MixerModule {
   final Lockable<bool> enableStatusLights = Lockable(
     true,
-    command: 'device.enableStatusLights',
+    command: 'device.enable_status_lights',
   );
-  final Lockable<int> smallUpdateIntervalMs = Lockable(
-    0,
-    command: 'device.small_update_interval_ms',
-  );
-  final Lockable<int> bigUpdateIntervalMs = Lockable(
-    0,
-    command: 'device.big_update_interval_ms',
-  );
+  final Lockable<bool> buttonMiscPressed = Lockable(false, command: 'device.button_misc_pressed');
+  final Lockable<bool> groundLiftEnabled = Lockable(false, command: 'device.ground_lift_enabled');
+  final Lockable<bool> inputXlrDetected = Lockable(false, command: 'device.input_xlr_detected');
+  final Lockable<bool> inputJackDetected = Lockable(true, command: 'device.input_jack_detected');
+  final Lockable<bool> outputXlrDetected = Lockable(false, command: 'device.output_xlr_detected');
+  final Lockable<bool> outputJackDetected = Lockable(false, command: 'device.output_jack_detected');
 
   @override
   Map<String, Lockable> get properties => {
     'enable_status_lights': enableStatusLights,
-    'small_update_interval_ms': smallUpdateIntervalMs,
-    'big_update_interval_ms': bigUpdateIntervalMs,
+    'button_misc_pressed': buttonMiscPressed,
+    'ground_lift_enabled': groundLiftEnabled,
+    'input_xlr_detected': inputXlrDetected,
+    'input_jack_detected': inputJackDetected,
+    'output_xlr_detected': outputXlrDetected,
+    'output_jack_detected': outputJackDetected,
   };
 }
 
