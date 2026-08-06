@@ -1,11 +1,13 @@
 import 'dart:developer' as dev;
 
 import 'package:flutter/material.dart';
+import 'package:onechannelaudioprocessor/screens/settings_screen.dart';
 
 import '../models/mixer_state.dart';
 import '../services/esp32_connection_service.dart';
 import '../widgets/audio_fader/audio_fader.dart';
 import '../widgets/audio_meter.dart';
+import 'advanced_controls_screen.dart';
 import 'connection_screen.dart';
 import 'eq_screen.dart';
 
@@ -131,12 +133,34 @@ class _MixerScreenState extends State<MixerScreen> {
         title: const Text('MiniMixer'),
         actions: [
           IconButton(
+            icon: const Icon(Icons.settings_input_composite),
+            tooltip: 'Advanced Controls',
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => AdvancedControlsScreen(service: widget.service),
+                ),
+              );
+            },
+          ),
+          IconButton(
             icon: const Icon(Icons.tune),
             tooltip: 'Equalizer',
             onPressed: () {
               Navigator.of(context).push(
                 MaterialPageRoute(
                   builder: (_) => EqScreen(service: widget.service),
+                ),
+              );
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.settings),
+            tooltip: 'Settings',
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => SettingsScreen(service: widget.service),
                 ),
               );
             },

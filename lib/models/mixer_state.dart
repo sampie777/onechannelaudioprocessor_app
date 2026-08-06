@@ -6,8 +6,9 @@ import '../utils/math.dart';
 class Lockable<T> {
   T value;
   DateTime _lockUntil = DateTime.fromMillisecondsSinceEpoch(0);
+  final String command;
 
-  Lockable(this.value);
+  Lockable(this.value, {required this.command});
 
   // Automatically parses from incoming JSON (if lock expired)
   void updateFromJson(dynamic jsonValue) {
@@ -72,18 +73,41 @@ abstract class MixerModule {
 // MODULE COMPONENTS
 // -----------------------------------------------------------------------------
 class RoutingState extends MixerModule {
-  final Lockable<bool> micToPga = Lockable(false);
-  final Lockable<bool> lineToPga = Lockable(false);
-  final Lockable<bool> lineToAdcMix = Lockable(false);
-  final Lockable<bool> adcMixToMainMixer = Lockable(false);
-  final Lockable<bool> auxToMainMixer = Lockable(false);
-  final Lockable<bool> dacToMainMixer = Lockable(false);
+  final Lockable<bool> micToPga = Lockable(
+    false,
+    command: 'routing.mic_to_pga',
+  );
+  final Lockable<bool> lineMonoToPga = Lockable(
+    false,
+    command: 'routing.line_mono_to_pga',
+  );
+  final Lockable<bool> lineStereoToPga = Lockable(
+    false,
+    command: 'routing.line_stereo_to_pga',
+  );
+  final Lockable<bool> lineStereoToAdcMix = Lockable(
+    false,
+    command: 'routing.line_stereo_to_adcmix',
+  );
+  final Lockable<bool> adcMixToMainMixer = Lockable(
+    false,
+    command: 'routing.adcmix_to_main_mixer',
+  );
+  final Lockable<bool> auxToMainMixer = Lockable(
+    false,
+    command: 'routing.aux_to_main_mixer',
+  );
+  final Lockable<bool> dacToMainMixer = Lockable(
+    false,
+    command: 'routing.dac_to_main_mixer',
+  );
 
   @override
   Map<String, Lockable> get properties => {
     'mic_to_pga': micToPga,
-    'line_to_pga': lineToPga,
-    'line_to_adcmix': lineToAdcMix,
+    'line_mono_to_pga': lineMonoToPga,
+    'line_stereo_to_pga': lineStereoToPga,
+    'line_stereo_to_adcmix': lineStereoToAdcMix,
     'adcmix_to_main_mixer': adcMixToMainMixer,
     'aux_to_main_mixer': auxToMainMixer,
     'dac_to_main_mixer': dacToMainMixer,
@@ -91,9 +115,9 @@ class RoutingState extends MixerModule {
 }
 
 class PgaState extends MixerModule {
-  final Lockable<bool> mute = Lockable(false);
-  final Lockable<double> gain = Lockable(0.0);
-  final Lockable<bool> boost = Lockable(false);
+  final Lockable<bool> mute = Lockable(false, command: 'pga.mute');
+  final Lockable<double> gain = Lockable(0.0, command: 'pga.gain');
+  final Lockable<bool> boost = Lockable(false, command: 'pga.boost');
 
   @override
   Map<String, Lockable> get properties => {
@@ -104,24 +128,27 @@ class PgaState extends MixerModule {
 }
 
 class AdcState extends MixerModule {
-  final Lockable<double> volume = Lockable(0.0);
+  final Lockable<double> volume = Lockable(0.0, command: 'adc.volume');
 
   @override
   Map<String, Lockable> get properties => {'volume': volume};
 }
 
 class DacState extends MixerModule {
-  final Lockable<bool> mute = Lockable(false);
-  final Lockable<double> volume = Lockable(0.0);
+  final Lockable<bool> mute = Lockable(false, command: 'dac.mute');
+  final Lockable<double> volume = Lockable(0.0, command: 'dac.volume');
 
   @override
   Map<String, Lockable> get properties => {'mute': mute, 'volume': volume};
 }
 
 class MixerControlState extends MixerModule {
-  final Lockable<int> volumeAdcMix = Lockable(0);
-  final Lockable<int> volumeAux = Lockable(0);
-  final Lockable<bool> mono = Lockable(false);
+  final Lockable<int> volumeAdcMix = Lockable(
+    0,
+    command: 'mixer.volume_adcmix',
+  );
+  final Lockable<int> volumeAux = Lockable(0, command: 'mixer.volume_aux');
+  final Lockable<bool> mono = Lockable(false, command: 'mixer.mono');
 
   @override
   Map<String, Lockable> get properties => {
@@ -132,17 +159,17 @@ class MixerControlState extends MixerModule {
 }
 
 class HeadphonesState extends MixerModule {
-  final Lockable<bool> mute = Lockable(false);
-  final Lockable<int> volume = Lockable(0);
+  final Lockable<bool> mute = Lockable(false, command: 'headphones.mute');
+  final Lockable<int> volume = Lockable(0, command: 'headphones.volume');
 
   @override
   Map<String, Lockable> get properties => {'mute': mute, 'volume': volume};
 }
 
 class AuxOutState extends MixerModule {
-  final Lockable<bool> mute = Lockable(false);
-  final Lockable<bool> gainBoost = Lockable(false);
-  final Lockable<bool> balanced = Lockable(false);
+  final Lockable<bool> mute = Lockable(false, command: 'aux.mute');
+  final Lockable<bool> gainBoost = Lockable(false, command: 'aux.gain_boost');
+  final Lockable<bool> balanced = Lockable(false, command: 'aux.balanced');
 
   @override
   Map<String, Lockable> get properties => {
@@ -153,10 +180,13 @@ class AuxOutState extends MixerModule {
 }
 
 class SpeakerState extends MixerModule {
-  final Lockable<bool> mute = Lockable(false);
-  final Lockable<bool> gainBoost = Lockable(false);
-  final Lockable<bool> balanced = Lockable(false);
-  final Lockable<int> volume = Lockable(0);
+  final Lockable<bool> mute = Lockable(false, command: 'speaker.mute');
+  final Lockable<bool> gainBoost = Lockable(
+    false,
+    command: 'speaker.gain_boost',
+  );
+  final Lockable<bool> balanced = Lockable(false, command: 'speaker.balanced');
+  final Lockable<int> volume = Lockable(0, command: 'speaker.volume');
 
   @override
   Map<String, Lockable> get properties => {
@@ -168,8 +198,14 @@ class SpeakerState extends MixerModule {
 }
 
 class ClientState extends MixerModule {
-  final Lockable<int> smallUpdateIntervalMs = Lockable(0);
-  final Lockable<int> bigUpdateIntervalMs = Lockable(0);
+  final Lockable<int> smallUpdateIntervalMs = Lockable(
+    0,
+    command: 'client.small_update_interval_ms',
+  );
+  final Lockable<int> bigUpdateIntervalMs = Lockable(
+    0,
+    command: 'client.big_update_interval_ms',
+  );
 
   @override
   Map<String, Lockable> get properties => {
@@ -179,12 +215,24 @@ class ClientState extends MixerModule {
 }
 
 class DeviceState extends MixerModule {
-  final Lockable<bool> enableStatusLights = Lockable(true);
-  final Lockable<int> bigUpdateIntervalMs = Lockable(0);
+  final Lockable<bool> enableStatusLights = Lockable(
+    true,
+    command: 'device.enableStatusLights',
+  );
+  final Lockable<int> smallUpdateIntervalMs = Lockable(
+    0,
+    command: 'device.small_update_interval_ms',
+  );
+  final Lockable<int> bigUpdateIntervalMs = Lockable(
+    0,
+    command: 'device.big_update_interval_ms',
+  );
 
   @override
   Map<String, Lockable> get properties => {
     'enable_status_lights': enableStatusLights,
+    'small_update_interval_ms': smallUpdateIntervalMs,
+    'big_update_interval_ms': bigUpdateIntervalMs,
   };
 }
 
@@ -193,12 +241,18 @@ class DeviceState extends MixerModule {
 // -----------------------------------------------------------------------------
 class HighPassFilter extends MixerModule {
   final int defaultFreq;
-  final Lockable<bool> enabled = Lockable(true);
+  final Lockable<bool> enabled;
   final Lockable<int> frequency;
 
-  HighPassFilter({this.defaultFreq = 4}) : frequency = Lockable(defaultFreq);
+  HighPassFilter({this.defaultFreq = 4, required String commandPrefix})
+    : frequency = Lockable(defaultFreq, command: '$commandPrefix.frequency'),
+      enabled = Lockable(true, command: '$commandPrefix.enabled');
 
-  @override Map<String, Lockable> get properties => {'enabled': enabled, 'frequency': frequency};
+  @override
+  Map<String, Lockable> get properties => {
+    'enabled': enabled,
+    'frequency': frequency,
+  };
 }
 
 class ShelfFilter extends MixerModule {
@@ -207,11 +261,17 @@ class ShelfFilter extends MixerModule {
   int storedGain = 0;
 
   final Lockable<int> frequency;
-  final Lockable<int> gain = Lockable(0);
+  final Lockable<int> gain;
 
-  ShelfFilter({this.defaultFreq = 80}) : frequency = Lockable(defaultFreq);
+  ShelfFilter({this.defaultFreq = 80, required String commandPrefix})
+    : frequency = Lockable(defaultFreq, command: '$commandPrefix.frequency'),
+      gain = Lockable(0, command: '$commandPrefix.gain');
 
-  @override Map<String, Lockable> get properties => {'frequency': frequency, 'gain': gain};
+  @override
+  Map<String, Lockable> get properties => {
+    'frequency': frequency,
+    'gain': gain,
+  };
 
   @override
   void updateFromJson(Map<String, dynamic>? json) {
@@ -230,12 +290,20 @@ class ParametricEqBand extends MixerModule {
   int storedGain = 0;
 
   final Lockable<int> frequency;
-  final Lockable<int> gain = Lockable(0);
-  final Lockable<String> band = Lockable('narrow');
+  final Lockable<int> gain;
+  final Lockable<String> band;
 
-  ParametricEqBand({this.defaultFreq = 230}) : frequency = Lockable(defaultFreq);
+  ParametricEqBand({this.defaultFreq = 230, required String commandPrefix})
+    : frequency = Lockable(defaultFreq, command: '$commandPrefix.frequency'),
+      gain = Lockable(0, command: '$commandPrefix.gain'),
+      band = Lockable('narrow', command: '$commandPrefix.band');
 
-  @override Map<String, Lockable> get properties => {'frequency': frequency, 'gain': gain, 'band': band};
+  @override
+  Map<String, Lockable> get properties => {
+    'frequency': frequency,
+    'gain': gain,
+    'band': band,
+  };
 
   @override
   void updateFromJson(Map<String, dynamic>? json) {
@@ -248,12 +316,30 @@ class ParametricEqBand extends MixerModule {
 
 class EqState extends MixerModule {
   // Inject the correct lowest allowed frequency for each specific band
-  final HighPassFilter highPass = HighPassFilter(defaultFreq: 4);
-  final ShelfFilter lowShelf = ShelfFilter(defaultFreq: 105);
-  final ParametricEqBand low = ParametricEqBand(defaultFreq: 300);
-  final ParametricEqBand mid = ParametricEqBand(defaultFreq: 850);
-  final ParametricEqBand high = ParametricEqBand(defaultFreq: 2400);
-  final ShelfFilter highShelf = ShelfFilter(defaultFreq: 6900);
+  final HighPassFilter highPass = HighPassFilter(
+    defaultFreq: 4,
+    commandPrefix: "eq.high_pass",
+  );
+  final ShelfFilter lowShelf = ShelfFilter(
+    defaultFreq: 105,
+    commandPrefix: "eq.low_shelf",
+  );
+  final ParametricEqBand low = ParametricEqBand(
+    defaultFreq: 300,
+    commandPrefix: 'eq.low',
+  );
+  final ParametricEqBand mid = ParametricEqBand(
+    defaultFreq: 850,
+    commandPrefix: "eq.mid",
+  );
+  final ParametricEqBand high = ParametricEqBand(
+    defaultFreq: 2400,
+    commandPrefix: "eq.high",
+  );
+  final ShelfFilter highShelf = ShelfFilter(
+    defaultFreq: 6900,
+    commandPrefix: "eq.high_shelf",
+  );
 
   @override
   Map<String, Lockable> get properties => {}; // Unused for nested parent
@@ -261,27 +347,41 @@ class EqState extends MixerModule {
   @override
   void updateFromJson(Map<String, dynamic>? json) {
     if (json == null) return;
-    if (json.containsKey('high_pass')) highPass.updateFromJson(json['high_pass']);
-    if (json.containsKey('low_shelf')) lowShelf.updateFromJson(json['low_shelf']);
+    if (json.containsKey('high_pass'))
+      highPass.updateFromJson(json['high_pass']);
+    if (json.containsKey('low_shelf'))
+      lowShelf.updateFromJson(json['low_shelf']);
     if (json.containsKey('low')) low.updateFromJson(json['low']);
     if (json.containsKey('mid')) mid.updateFromJson(json['mid']);
     if (json.containsKey('high')) high.updateFromJson(json['high']);
-    if (json.containsKey('high_shelf')) highShelf.updateFromJson(json['high_shelf']);
+    if (json.containsKey('high_shelf'))
+      highShelf.updateFromJson(json['high_shelf']);
   }
 
   // Handles deep commands like 'eq.low.gain=5'
   void applyNestedCommand(String subModule, String param, String value) {
     switch (subModule) {
-      case 'high_pass': highPass.applyOptimisticCommand(param, value); break;
-      case 'low_shelf': lowShelf.applyOptimisticCommand(param, value); break;
-      case 'low': low.applyOptimisticCommand(param, value); break;
-      case 'mid': mid.applyOptimisticCommand(param, value); break;
-      case 'high': high.applyOptimisticCommand(param, value); break;
-      case 'high_shelf': highShelf.applyOptimisticCommand(param, value); break;
+      case 'high_pass':
+        highPass.applyOptimisticCommand(param, value);
+        break;
+      case 'low_shelf':
+        lowShelf.applyOptimisticCommand(param, value);
+        break;
+      case 'low':
+        low.applyOptimisticCommand(param, value);
+        break;
+      case 'mid':
+        mid.applyOptimisticCommand(param, value);
+        break;
+      case 'high':
+        high.applyOptimisticCommand(param, value);
+        break;
+      case 'high_shelf':
+        highShelf.applyOptimisticCommand(param, value);
+        break;
     }
   }
 }
-
 
 // -----------------------------------------------------------------------------
 // MAIN STATE TREE
@@ -333,6 +433,7 @@ class MixerState {
   }
 
   double get peakDbfs => rawToDbfs(peakOverPeriod);
+
   double get avgPeakDbfs => rawToDbfs(avgPeakOverPeriod);
 
   // Automatically parses all standard incoming JSON (Meters + UI State)
@@ -366,7 +467,11 @@ class MixerState {
             _modules[moduleName]!.applyOptimisticCommand(parts[1], value);
           } else if (parts.length == 3 && moduleName == 'eq') {
             // Nested EQ command (e.g. "eq.low.gain")
-            (_modules['eq'] as EqState).applyNestedCommand(parts[1], parts[2], value);
+            (_modules['eq'] as EqState).applyNestedCommand(
+              parts[1],
+              parts[2],
+              value,
+            );
           }
         }
       }
