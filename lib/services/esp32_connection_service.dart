@@ -97,6 +97,8 @@ class Esp32ConnectionService extends ChangeNotifier {
     _lastConnectionType = ConnectionType.demo;
     _activeType = ConnectionType.demo;
     _isConnected = true;
+    _currentMixerState.device.inputJackDetected.value = true;
+    _currentMixerState.device.outputXlrDetected.value = true;
     notifyListeners();
 
     // Periodically generate simulated audio meter peaks
