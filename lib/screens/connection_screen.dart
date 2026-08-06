@@ -75,8 +75,6 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
       _recentIps = savedIps;
       if (_recentIps.isNotEmpty) {
         _ipController.text = _recentIps.first;
-      } else {
-        _ipController.text = "192.168.1.50";
       }
     });
   }
@@ -236,39 +234,9 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
         await _saveSuccessfulIp(ip);
       } else if (_selectedType == ConnectionType.direct) {
         if (_isNativeMobileApp) {
-          // Programmatically trigger phone to join ESP32 Wi-Fi network
-          final bool wifiJoined = await _connectToEspSoftAp();
-          if (!wifiJoined) {
-            // FALLBACK: Open Wi-Fi settings and ask the user to connect
-
-            if (!mounted) {
-              // Throw exception to halt the immediate socket connection attempt
-              throw Exception("Waiting for manual Wi-Fi connection...");
-            }
-
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  "Could not auto-connect. Please select '$_espSoftApSsid' manually.",
-                ),
-                backgroundColor: Colors.orange,
-                duration: const Duration(seconds: 4),
-              ),
-            );
-
-            // Open the native Android/iOS Wi-Fi settings page
-            Future.delayed(const Duration(seconds: 2), () {
-              AppSettings.openAppSettings(type: AppSettingsType.wifi);
-            });
-
-            throw Exception("Waiting for manual Wi-Fi connection...");
-          }
-
-          // Wait brief moment for local IP assignment (DHCP 192.168.4.2)
-          await Future.delayed(const Duration(milliseconds: 1500));
+          await connectToAPNetwork();
         }
 
-        // 2. Connect WebSockets/UDP to ESP32 Gateway IP
         const ip = "192.168.4.1";
         await widget.service.connectWifi(ip);
       } else if (_selectedType == ConnectionType.demo) {
@@ -303,6 +271,38 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  Future<void> connectToAPNetwork() async {
+    final bool wifiJoined = await _connectToEspSoftAp();
+    if (!wifiJoined) {
+      // FALLBACK: Open Wi-Fi settings and ask the user to connect
+
+      if (!mounted) {
+        // Throw exception to halt the immediate socket connection attempt
+        throw Exception("Waiting for manual Wi-Fi connection...");
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            "Could not auto-connect. Please select '$_espSoftApSsid' manually.",
+          ),
+          backgroundColor: Colors.orange,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+
+      // Open the native Android/iOS Wi-Fi settings page
+      Future.delayed(const Duration(seconds: 2), () {
+        AppSettings.openAppSettings(type: AppSettingsType.wifi);
+      });
+
+      throw Exception("Waiting for manual Wi-Fi connection...");
+    }
+
+    // Wait brief moment for local IP assignment (DHCP 192.168.4.2)
+    await Future.delayed(const Duration(milliseconds: 1500));
   }
 
   @override
