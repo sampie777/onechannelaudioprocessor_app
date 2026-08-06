@@ -24,21 +24,19 @@ class _AudioMeterWidgetState extends State<AudioMeterWidget>
   late Ticker _ticker;
   double _fallingPeak = 0.0;
 
-  // Rate at which the peak bar drops per second (1.0 = full height per second)
-  // Adjust this value to make the drop faster or slower!
+  // The specific dB stops that should be spaced evenly on the meter
+  final List<double> _meterStops = [-60.0, -40.0, -20.0, -10.0, -5.0, 0.0];
   static const double _decayRatePerSecond = 0.05;
 
   @override
   void initState() {
     super.initState();
-    // Use a Ticker to smoothly animate the drop on every display frame (60/120 Hz)
     _ticker = createTicker(_onTick)..start();
   }
 
   @override
   void didUpdateWidget(covariant AudioMeterWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // If incoming peak is higher than current falling indicator, snap up immediately
     if (widget.peak > _fallingPeak) {
       _fallingPeak = widget.peak.clamp(0.0, 1.0);
     }
@@ -47,12 +45,9 @@ class _AudioMeterWidgetState extends State<AudioMeterWidget>
   void _onTick(Duration elapsed) {
     if (_fallingPeak <= 0.0) return;
 
-    // Calculate time delta since last frame (~16ms)
-    // Decrement peak gradually over time
     setState(() {
       _fallingPeak -= _decayRatePerSecond * (1 / 60.0);
 
-      // Keep falling peak clamped between current real-time peak and 0
       if (_fallingPeak < widget.peak) {
         _fallingPeak = widget.peak.clamp(0.0, 1.0);
       }
@@ -76,11 +71,10 @@ class _AudioMeterWidgetState extends State<AudioMeterWidget>
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // 1. The Audio Meter Widget
               Container(
                 width: widget.width,
                 height: 280,
-                padding: EdgeInsets.all(4),
+                padding: const EdgeInsets.all(4),
                 decoration: BoxDecoration(
                   color: Colors.black87,
                   borderRadius: BorderRadius.circular(6),
@@ -90,15 +84,17 @@ class _AudioMeterWidgetState extends State<AudioMeterWidget>
                   painter: _MeterPainter(
                     peakLinear: _fallingPeak,
                     avgPeakLinear: widget.peak,
+                    meterStops: _meterStops,
                   ),
                 ),
               ),
               const SizedBox(width: 4),
-              // 2. The Professional dBFS Scale
               Container(
                 padding: const EdgeInsets.symmetric(vertical: 4),
                 width: 35,
-                child: CustomPaint(painter: AudioMeterScalePainter()),
+                child: CustomPaint(
+                  painter: AudioMeterScalePainter(meterStops: _meterStops),
+                ),
               ),
             ],
           ),
@@ -116,15 +112,19 @@ class _AudioMeterWidgetState extends State<AudioMeterWidget>
 class _MeterPainter extends CustomPainter {
   final double peakLinear;
   final double avgPeakLinear;
+  final List<double> meterStops;
 
-  _MeterPainter({required this.peakLinear, required this.avgPeakLinear});
+  _MeterPainter({
+    required this.peakLinear,
+    required this.avgPeakLinear,
+    required this.meterStops,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
     final double height = size.height;
     final double width = size.width;
 
-    // Draw Average Peak Bar (Solid Fill)
     final Paint fillPaint = Paint()
       ..shader = LinearGradient(
         begin: Alignment.bottomCenter,
@@ -133,17 +133,20 @@ class _MeterPainter extends CustomPainter {
         stops: const [0.6, 0.85, 1.0],
       ).createShader(Rect.fromLTWH(0, 0, width, height));
 
-    final avgHeight = height * rawToDbLinear(avgPeakLinear).clamp(0.0, 1.0);
+    // Calculate height based on new piecewise visual scale mapping
+    final avgHeight =
+        height * rawToVisualLinear(meterStops, avgPeakLinear).clamp(0.0, 1.0);
     final Rect barRect = Rect.fromLTWH(0, height - avgHeight, width, avgHeight);
     canvas.drawRRect(
       RRect.fromRectAndRadius(barRect, const Radius.circular(2)),
       fillPaint,
     );
 
-    // Draw Max Peak Marker Line
     if (peakLinear > 0.001) {
+      // Calculate Y coordinate for peak line using the same piecewise visual scale
       final peakY =
-          height - (height * rawToDbLinear(peakLinear).clamp(0.0, 1.0));
+          height -
+          (height * rawToVisualLinear(meterStops, peakLinear).clamp(0.0, 1.0));
       final Paint linePaint = Paint()
         ..color = Colors.white
         ..strokeWidth = 3.0
@@ -164,20 +167,23 @@ class _MeterPainter extends CustomPainter {
 // AUDIO METER SCALE PAINTER
 // -----------------------------------------------------------------------------
 class AudioMeterScalePainter extends CustomPainter {
-  final List<double> ticks = [0.0, -6.0, -12.0, -20.0, -24.0, -48.0];
+  // Use ticks that map exactly to the new piecewise segments
+  final List<double> ticks = [0.0, -5.0, -10.0, -20.0, -40.0, -60.0];
+  final List<double> meterStops;
+
+  AudioMeterScalePainter({required this.meterStops});
 
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()..strokeCap = StrokeCap.round;
 
-    // Maps standard dBFS values to a 0.0 -> 1.0 height ratio
-    // 0 dBFS is at the very top (y = 0), -60 dBFS is at the bottom (y = height)
     for (final tick in ticks) {
-      // Linear approximation for visual meter scaling (0dB is top, -48dB is near bottom)
-      // Assuming a floor of -60dB for the bottom of the meter
-      final double normalized = dbfsToDbLinear(tick);
-      // final double normalized = _dbfsToLinear(tick);
-      final double y = normalized * size.height;
+      // Piecewise fraction (0.0 is bottom of the meter, 1.0 is top)
+      final double visualFraction = dbToVisualLinear(meterStops, tick);
+
+      // Invert for Canvas Y coordinate (Y=0 is top, Y=height is bottom)
+      final double normalizedY = 1.0 - visualFraction;
+      final double y = normalizedY * size.height;
 
       final isZero = tick == 0.0;
       final lineLength = isZero ? 10.0 : 6.0;
@@ -185,7 +191,6 @@ class AudioMeterScalePainter extends CustomPainter {
       paint.color = isZero ? Colors.redAccent : Colors.grey.shade600;
       paint.strokeWidth = isZero ? 2.0 : 1.5;
 
-      // Draw tick line pointing left towards the meter
       canvas.drawLine(Offset(0, y), Offset(lineLength, y), paint);
 
       final text = tick == 0 ? '0' : '${tick.toInt()}';
@@ -201,11 +206,30 @@ class AudioMeterScalePainter extends CustomPainter {
       );
       tp.layout();
 
-      // Paint text to the right of the tick line
       tp.paint(canvas, Offset(lineLength + 6, y - (tp.height / 2)));
     }
   }
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+double dbToVisualLinear(List<double> meterStops, double db) {
+  if (db <= meterStops.first) return 0.0;
+  if (db >= meterStops.last) return 1.0;
+
+  for (int i = 0; i < meterStops.length - 1; i++) {
+    if (db >= meterStops[i] && db <= meterStops[i + 1]) {
+      double range = meterStops[i + 1] - meterStops[i];
+      double fraction = (db - meterStops[i]) / range;
+      // Each segment represents an equal fraction of the physical meter
+      return (i + fraction) / (meterStops.length - 1);
+    }
+  }
+  return 0.0;
+}
+
+// Converts incoming raw telemetry [0.0 - 1.0] directly to the new visual height fraction
+double rawToVisualLinear(List<double> meterStops, double value) {
+  return dbToVisualLinear(meterStops, rawToDbfs(value));
 }
