@@ -238,38 +238,84 @@ class AdvancedControlsScreen extends StatelessWidget {
 
               const SizedBox(height: 24),
 
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                decoration: BoxDecoration(
-                  color: Colors.grey.withAlpha(20),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: Colors.grey.withAlpha(50),
-                  ),
-                ),
+              IntrinsicHeight(
+                // 1. Added IntrinsicHeight here
                 child: Row(
+                  spacing: 12.0,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  // 2. Added stretch alignment
                   children: [
-                    SizedBox(
-                      width: 28,
-                      height: 28,
-                      child: CustomPaint(
-                        painter: GroundSymbolPainter(isLifted: isGroundLifted),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
                       ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.withAlpha(20),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.grey.withAlpha(50)),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        // Centers the painter vertically
                         children: [
-                          Text(
-                            isGroundLifted ? 'Ground Lifted' : 'Ground Connected',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey,
-                              fontWeight: FontWeight.bold,
+                          SizedBox(
+                            width: 36,
+                            height: 36,
+                            child: CustomPaint(
+                              painter: XlrConnectorPainter(
+                                isDetected:
+                                    state.device.outputXlrDetected.value,
+                              ),
                             ),
                           ),
                         ],
+                      ),
+                    ),
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.withAlpha(20),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.grey.withAlpha(50)),
+                        ),
+                        child: Row(
+                          children: [
+                            SizedBox(
+                              width: 28,
+                              height: 28,
+                              child: CustomPaint(
+                                painter: GroundSymbolPainter(
+                                  isLifted: isGroundLifted,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                // Centers text vertically
+                                children: [
+                                  Text(
+                                    isGroundLifted
+                                        ? 'Ground Lifted'
+                                        : 'Ground Connected',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ],

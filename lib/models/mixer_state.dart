@@ -222,7 +222,7 @@ class DeviceState extends MixerModule {
   final Lockable<bool> buttonMiscPressed = Lockable(false, command: 'device.button_misc_pressed');
   final Lockable<bool> groundLiftEnabled = Lockable(false, command: 'device.ground_lift_enabled');
   final Lockable<bool> inputXlrDetected = Lockable(false, command: 'device.input_xlr_detected');
-  final Lockable<bool> inputJackDetected = Lockable(true, command: 'device.input_jack_detected');
+  final Lockable<bool> inputJackDetected = Lockable(false, command: 'device.input_jack_detected');
   final Lockable<bool> outputXlrDetected = Lockable(false, command: 'device.output_xlr_detected');
   final Lockable<bool> outputJackDetected = Lockable(false, command: 'device.output_jack_detected');
 
