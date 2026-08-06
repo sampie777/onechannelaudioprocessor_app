@@ -290,18 +290,52 @@ class _EqScreenState extends State<EqScreen> {
     required int value,
     required Function(int) onChanged,
   }) {
-    final clampedValue = value.toDouble().clamp(-12.0, 12.0);
+    final double min = -12.0;
+    final double max = 12.0;
+    final clampedValue = value.toDouble().clamp(min, max);
     return Row(
       children: [
         SizedBox(width: 50, child: Text(label, style: const TextStyle(fontWeight: FontWeight.w500))),
         Expanded(
-          child: Slider(
-            value: clampedValue,
-            min: -12.0,
-            max: 12.0,
-            divisions: 24,
-            onChanged: (val) => onChanged(val.toInt()),
-          ),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              // Calculate the fractional position of 0 dB (0.0 to 1.0)
+              final double fraction = (0.0 - min) / (max - min);
+
+              // The default horizontal padding of a Material Slider is 24px on each side
+              const double trackPadding = 26.0;
+              final double trackWidth = constraints.maxWidth - (trackPadding * 2);
+              final double leftPosition = trackPadding + (trackWidth * fraction);
+
+              return Stack(
+                alignment: Alignment.center,
+                children: [
+                  // Only draw the tick mark if 0 dB is actually within the slider's range
+                  if (min <= 0 && max >= 0)
+                    Positioned(
+                      left: leftPosition - 1, // Offset by half the line width (2px) to center it
+                      child: Container(
+                        width: 2,
+                        height: 30, // Slightly taller than the slider track
+                        decoration: BoxDecoration(
+                          color: Colors.grey.withAlpha(150),
+                          borderRadius: BorderRadius.circular(1),
+                        ),
+                      ),
+                    ),
+
+                  // The main Slider
+                  Slider(
+                    value: clampedValue.clamp(min, max),
+                    min: min,
+                    max: max,
+                    divisions: (max - min).toInt(),
+                    onChanged: (val) => onChanged(val.toInt()),
+                  ),
+                ],
+              );
+            },
+          )
         ),
         SizedBox(width: 65, child: Text('${clampedValue.toInt()} dB', textAlign: TextAlign.right)),
       ],
