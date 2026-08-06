@@ -27,6 +27,8 @@ class AdvancedControlsScreen extends StatelessWidget {
           final bool isOutputMono = state.mixer.mono.value;
           final String outputMode = isOutputMono ? 'mono' : 'stereo';
 
+          final bool isGroundLifted = state.device.groundLiftEnabled.value;
+
           return ListView(
             padding: const EdgeInsets.all(24.0),
             children: [
@@ -233,6 +235,46 @@ class AdvancedControlsScreen extends StatelessWidget {
                 min: -57,
                 max: 6,
               ),
+
+              const SizedBox(height: 24),
+
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: Colors.grey.withAlpha(20),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: Colors.grey.withAlpha(50),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: 28,
+                      height: 28,
+                      child: CustomPaint(
+                        painter: GroundSymbolPainter(isLifted: isGroundLifted),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            isGroundLifted ? 'Ground Lifted' : 'Ground Connected',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ],
           );
         },
@@ -344,4 +386,53 @@ class JackConnectorPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant JackConnectorPainter oldDelegate) =>
       oldDelegate.isDetected != isDetected;
+}
+
+class GroundSymbolPainter extends CustomPainter {
+  final bool isLifted;
+
+  GroundSymbolPainter({required this.isLifted});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final Color strokeColor = isLifted ? Colors.amber : Colors.white70;
+    final Paint linePaint = Paint()
+      ..color = strokeColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0
+      ..strokeCap = StrokeCap.round;
+
+    final double midX = size.width / 2;
+
+    if (isLifted) {
+      // 1. Lifted: Draw top wire down to gap
+      canvas.drawLine(Offset(midX, 0), Offset(midX, 6), linePaint);
+
+      // 2. Break / Disconnect gap (red/amber 'X' cut indicator)
+      final Paint cutPaint = Paint()
+        ..color = Colors.amber
+        ..strokeWidth = 1.8
+        ..strokeCap = StrokeCap.round;
+      canvas.drawLine(Offset(midX - 3, 7), Offset(midX + 3, 11), cutPaint);
+      canvas.drawLine(Offset(midX + 3, 7), Offset(midX - 3, 11), cutPaint);
+
+      // 3. Lower stem starting below the break gap
+      canvas.drawLine(Offset(midX, 12), Offset(midX, 16), linePaint);
+    } else {
+      // Intact continuous wire from top stem to earth lines
+      canvas.drawLine(Offset(midX, 0), Offset(midX, 16), linePaint);
+    }
+
+    // 4. Standard 3-line Earth Ground Schematic pyramid (Bottom)
+    // Top line (widest)
+    canvas.drawLine(Offset(midX - 10, 16), Offset(midX + 10, 16), linePaint);
+    // Middle line
+    canvas.drawLine(Offset(midX - 6, 20), Offset(midX + 6, 20), linePaint);
+    // Bottom line (narrowest)
+    canvas.drawLine(Offset(midX - 2, 24), Offset(midX + 2, 24), linePaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant GroundSymbolPainter oldDelegate) =>
+      oldDelegate.isLifted != isLifted;
 }
