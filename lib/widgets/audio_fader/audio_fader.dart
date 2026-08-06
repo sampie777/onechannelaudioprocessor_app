@@ -54,16 +54,17 @@ class AudioFaderWidget extends StatelessWidget {
                   child: RotatedBox(
                     quarterTurns: 3,
                     child: Slider(
-                      value: sliderFraction, // Now uses 0.0 - 1.0 mapping
+                      value: sliderFraction,
+                      // Now uses 0.0 - 1.0 mapping
                       min: 0.0,
                       max: 1.0,
                       // Removed 'divisions' to allow a smooth analog feel
                       onChanged: (fraction) {
-                        // Map the fraction back to dB, round to integer, and broadcast
+                        // Map the fraction back to dB, and broadcast
                         final mappedDb = linearToDb(
                           scaleTicks,
                           fraction,
-                        ).roundToDouble();
+                        );
                         onChanged(mappedDb);
                       },
                     ),

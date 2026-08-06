@@ -198,9 +198,12 @@ class _MixerScreenState extends State<MixerScreen> {
                         showVolumeValueText: false,
                         value: state.dac.volume.value.toDouble(),
                         isMuted: state.speaker.mute.value,
+                        scaleTicks: const [-127, -80.0, -40.0, -20.0, -10.0, -5.0, 0.0],
                         onChanged: (val) {
+                          // Limit to 0.5 dB interval changes
+                          double value = (val * 2).toInt().toDouble() / 2;
                           widget.service.sendCommands({
-                            'dac.volume': val.toInt().toString(),
+                            'dac.volume': value.toStringAsFixed(1),
                           });
                         },
                         onMuteToggled: () {
