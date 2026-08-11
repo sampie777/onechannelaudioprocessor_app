@@ -4,17 +4,24 @@ import '../models/mixer_state.dart';
 import '../services/esp32_connection_service.dart';
 import '../widgets/volume_slider.dart';
 
-class AdvancedControlsScreen extends StatelessWidget {
+class AdvancedControlsScreen extends StatefulWidget {
   final Esp32ConnectionService service;
 
   const AdvancedControlsScreen({super.key, required this.service});
+
+  @override
+  State<AdvancedControlsScreen> createState() => _AdvancedControlsScreenState();
+}
+
+class _AdvancedControlsScreenState extends State<AdvancedControlsScreen> {
+  bool? wasLineMono;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Advanced Controls')),
       body: StreamBuilder<MixerState>(
-        stream: service.stateStream,
+        stream: widget.service.stateStream,
         builder: (context, snapshot) {
           final state = snapshot.data ?? MixerState();
 
@@ -28,6 +35,10 @@ class AdvancedControlsScreen extends StatelessWidget {
           final String outputMode = isOutputMono ? 'mono' : 'stereo';
 
           final bool isGroundLifted = state.device.groundLiftEnabled.value;
+
+          if (!isXlr && wasLineMono == null) {
+            wasLineMono = state.routing.lineMonoToPga.value;
+          }
 
           return ListView(
             padding: const EdgeInsets.all(24.0),
@@ -115,21 +126,26 @@ class AdvancedControlsScreen extends StatelessWidget {
                 onSelectionChanged: (set) {
                   final String newSource = set.first;
                   if (newSource == 'xlr') {
-                    service.sendCommands({
+                    widget.service.sendCommands({
                       state.routing.micToPga.command: 't',
                       state.routing.lineMonoToPga.command: 'f',
                       state.routing.lineStereoToPga.command: 'f',
                     });
                   } else {
-                    service.sendCommands({
+                    bool isMono = inputMode == 'mono';
+                    if (isXlr && wasLineMono != null) {
+                      isMono = wasLineMono!;
+                    }
+
+                    widget.service.sendCommands({
                       state.routing.micToPga.command: 'f',
-                      state.routing.lineMonoToPga.command: inputMode == 'mono'
-                          ? 't'
-                          : 'f',
-                      state.routing.lineStereoToPga.command: inputMode == 'stereo'
+                      state.routing.lineMonoToPga.command: isMono ? 't' : 'f',
+                      state.routing.lineStereoToPga.command: !isMono
                           ? 't'
                           : 'f',
                     });
+
+                    wasLineMono = isMono;
                   }
                 },
               ),
@@ -159,21 +175,24 @@ class AdvancedControlsScreen extends StatelessWidget {
                     ? null
                     : (set) {
                         final String newMode = set.first;
-                        service.sendCommands({
+                        final bool isMono = newMode == 'mono';
+                        widget.service.sendCommands({
                           state.routing.micToPga.command: 'f',
-                          state.routing.lineMonoToPga.command: newMode == 'mono'
+                          state.routing.lineMonoToPga.command: isMono
                               ? 't'
                               : 'f',
-                          state.routing.lineStereoToPga.command: newMode == 'stereo'
+                          state.routing.lineStereoToPga.command: !isMono
                               ? 't'
                               : 'f',
                         });
+
+                        wasLineMono = isMono;
                       },
               ),
               const SizedBox(height: 24),
 
               VolumeSlider(
-                service: service,
+                service: widget.service,
                 input: state.pga.gain,
                 label: 'Input Gain',
                 valueLabelDecimals: 2,
@@ -214,12 +233,12 @@ class AdvancedControlsScreen extends StatelessWidget {
                 onSelectionChanged: (set) {
                   final String newMode = set.first;
                   if (newMode == 'mono') {
-                    service.sendCommands({
+                    widget.service.sendCommands({
                       state.mixer.mono.command: 't',
                       state.speaker.balanced.command: 't',
                     });
                   } else {
-                    service.sendCommands({
+                    widget.service.sendCommands({
                       state.mixer.mono.command: 'f',
                       state.speaker.balanced.command: 'f',
                     });
@@ -229,7 +248,7 @@ class AdvancedControlsScreen extends StatelessWidget {
               const SizedBox(height: 24),
 
               VolumeSlider(
-                service: service,
+                service: widget.service,
                 input: state.speaker.volume,
                 label: 'Master Output Volume',
                 min: -57,

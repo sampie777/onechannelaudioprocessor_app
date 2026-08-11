@@ -99,6 +99,8 @@ class Esp32ConnectionService extends ChangeNotifier {
     _isConnected = true;
     _currentMixerState.device.inputJackDetected.value = true;
     _currentMixerState.device.outputXlrDetected.value = true;
+    _currentMixerState.routing.lineStereoToPga.value = true;
+    _currentMixerState.routing.lineStereoToPga.value = true;
     notifyListeners();
 
     // Periodically generate simulated audio meter peaks
