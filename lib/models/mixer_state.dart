@@ -97,6 +97,10 @@ class RoutingState extends MixerModule {
     false,
     command: 'routing.aux_to_main_mixer',
   );
+  final Lockable<bool> adcToDac = Lockable(
+    false,
+    command: 'routing.adc_to_dac',
+  );
   final Lockable<bool> dacToMainMixer = Lockable(
     false,
     command: 'routing.dac_to_main_mixer',
@@ -110,6 +114,7 @@ class RoutingState extends MixerModule {
     'line_stereo_to_adcmix': lineStereoToAdcMix,
     'adcmix_to_main_mixer': adcMixToMainMixer,
     'aux_to_main_mixer': auxToMainMixer,
+    'adc_to_dac': adcToDac,
     'dac_to_main_mixer': dacToMainMixer,
   };
 }
