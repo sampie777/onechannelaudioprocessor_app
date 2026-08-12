@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
-import 'audio_meter.dart';
+import '../../utils/math.dart';
 
 class HorizontalAudioMeterWidget extends StatefulWidget {
   final double peak; // 0.0 - 1.0
@@ -21,15 +21,17 @@ class HorizontalAudioMeterWidget extends StatefulWidget {
   State<HorizontalAudioMeterWidget> createState() =>
       _HorizontalAudioMeterWidgetState();
 }
-
 class _HorizontalAudioMeterWidgetState
     extends State<HorizontalAudioMeterWidget>
     with SingleTickerProviderStateMixin {
   late Ticker _ticker;
+
   double _fallingPeak = 0.0;
+  double _displayedBarPeak = 0.0;
+  Duration _lastTickTime = Duration.zero;
 
   final List<double> _meterStops = [-60.0, -40.0, -20.0, -10.0, -5.0, 0.0];
-  static const double _decayRatePerSecond = 0.05;
+  static const double _decayRatePerSecond = 0.0015;
 
   @override
   void initState() {
@@ -46,13 +48,26 @@ class _HorizontalAudioMeterWidgetState
   }
 
   void _onTick(Duration elapsed) {
-    if (_fallingPeak <= 0.0) return;
+    final double dt = _lastTickTime == Duration.zero
+        ? 1 / 60.0
+        : (elapsed - _lastTickTime).inMicroseconds / 1000000.0;
+    _lastTickTime = elapsed;
 
     setState(() {
-      _fallingPeak -= _decayRatePerSecond * (1 / 60.0);
+      // Peak Hold Decay
+      if (_fallingPeak > 0.0) {
+        _fallingPeak -= _decayRatePerSecond * dt * 60.0;
+        if (_fallingPeak < widget.peak) {
+          _fallingPeak = widget.peak.clamp(0.0, 1.0);
+        }
+      }
 
-      if (_fallingPeak < widget.peak) {
-        _fallingPeak = widget.peak.clamp(0.0, 1.0);
+      // Smooth Bar Interpolation
+      final double target = widget.peak.clamp(0.0, 1.0);
+      if (_displayedBarPeak < target) {
+        _displayedBarPeak += (target - _displayedBarPeak) * 0.35;
+      } else {
+        _displayedBarPeak += (target - _displayedBarPeak) * 0.12;
       }
     });
   }
@@ -88,7 +103,7 @@ class _HorizontalAudioMeterWidgetState
             size: Size.infinite,
             painter: _HorizontalMeterPainter(
               peakLinear: _fallingPeak,
-              avgPeakLinear: widget.peak,
+              avgPeakLinear: _displayedBarPeak,
               meterStops: _meterStops,
             ),
           ),

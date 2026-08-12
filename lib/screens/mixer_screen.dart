@@ -7,7 +7,7 @@ import 'package:onechannelaudioprocessor/screens/state_debug_screen.dart';
 import '../models/mixer_state.dart';
 import '../services/esp32_connection_service.dart';
 import '../widgets/audio_fader/audio_fader.dart';
-import '../widgets/audio_meter.dart';
+import '../widgets/vu_meter/audio_meter.dart';
 import 'advanced_controls_screen.dart';
 import 'connection_screen.dart';
 import 'eq/eq_screen.dart';

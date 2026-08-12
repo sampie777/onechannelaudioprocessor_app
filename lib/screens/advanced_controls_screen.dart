@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../models/mixer_state.dart';
 import '../services/esp32_connection_service.dart';
-import '../widgets/horizontal_audio_meter.dart';
 import '../widgets/volume_slider.dart';
+import '../widgets/vu_meter/horizontal_audio_meter.dart';
 
 class AdvancedControlsScreen extends StatefulWidget {
   final Esp32ConnectionService service;

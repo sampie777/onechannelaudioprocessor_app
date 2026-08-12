@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
-import '../utils/math.dart';
+import '../../utils/math.dart';
 
 class AudioMeterWidget extends StatefulWidget {
   final double peak; // 0.0 - 1.0
@@ -22,11 +22,14 @@ class AudioMeterWidget extends StatefulWidget {
 class _AudioMeterWidgetState extends State<AudioMeterWidget>
     with SingleTickerProviderStateMixin {
   late Ticker _ticker;
-  double _fallingPeak = 0.0;
+
+  double _fallingPeak = 0.0; // Peak-hold line value
+  double _displayedBarPeak = 0.0; // Interpolated main bar value
+  Duration _lastTickTime = Duration.zero;
 
   // The specific dB stops that should be spaced evenly on the meter
   final List<double> _meterStops = [-60.0, -40.0, -20.0, -10.0, -5.0, 0.0];
-  static const double _decayRatePerSecond = 0.05;
+  static const double _decayRatePerSecond = 0.0015;
 
   @override
   void initState() {
@@ -43,13 +46,29 @@ class _AudioMeterWidgetState extends State<AudioMeterWidget>
   }
 
   void _onTick(Duration elapsed) {
-    if (_fallingPeak <= 0.0) return;
+    // Calculate delta time between frames for frame-rate independent physics
+    final double dt = _lastTickTime == Duration.zero
+        ? 1 / 60.0
+        : (elapsed - _lastTickTime).inMicroseconds / 1000000.0;
+    _lastTickTime = elapsed;
 
     setState(() {
-      _fallingPeak -= _decayRatePerSecond * (1 / 60.0);
+      // Peak Hold Decay
+      if (_fallingPeak > 0.0) {
+        _fallingPeak -= _decayRatePerSecond * dt * 60.0;
+        if (_fallingPeak < widget.peak) {
+          _fallingPeak = widget.peak.clamp(0.0, 1.0);
+        }
+      }
 
-      if (_fallingPeak < widget.peak) {
-        _fallingPeak = widget.peak.clamp(0.0, 1.0);
+      // Smooth Bar Interpolation (filling bar)
+      final double target = widget.peak.clamp(0.0, 1.0);
+      if (_displayedBarPeak < target) {
+        // Attack: Fast rise (0.35 factor per frame for instant response)
+        _displayedBarPeak += (target - _displayedBarPeak) * 0.35;
+      } else {
+        // Release: Smooth glide down between 50ms+ network updates
+        _displayedBarPeak += (target - _displayedBarPeak) * 0.12;
       }
     });
   }
@@ -83,7 +102,7 @@ class _AudioMeterWidgetState extends State<AudioMeterWidget>
                 child: CustomPaint(
                   painter: _MeterPainter(
                     peakLinear: _fallingPeak,
-                    avgPeakLinear: widget.peak,
+                    avgPeakLinear: _displayedBarPeak,
                     meterStops: _meterStops,
                   ),
                 ),
@@ -212,24 +231,4 @@ class AudioMeterScalePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
-double dbToVisualLinear(List<double> meterStops, double db) {
-  if (db <= meterStops.first) return 0.0;
-  if (db >= meterStops.last) return 1.0;
-
-  for (int i = 0; i < meterStops.length - 1; i++) {
-    if (db >= meterStops[i] && db <= meterStops[i + 1]) {
-      double range = meterStops[i + 1] - meterStops[i];
-      double fraction = (db - meterStops[i]) / range;
-      // Each segment represents an equal fraction of the physical meter
-      return (i + fraction) / (meterStops.length - 1);
-    }
-  }
-  return 0.0;
-}
-
-// Converts incoming raw telemetry [0.0 - 1.0] directly to the new visual height fraction
-double rawToVisualLinear(List<double> meterStops, double value) {
-  return dbToVisualLinear(meterStops, rawToDbfs(value));
 }
