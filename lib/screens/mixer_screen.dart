@@ -10,7 +10,7 @@ import '../widgets/audio_fader/audio_fader.dart';
 import '../widgets/audio_meter.dart';
 import 'advanced_controls_screen.dart';
 import 'connection_screen.dart';
-import 'eq_screen.dart';
+import 'eq/eq_screen.dart';
 
 class MixerScreen extends StatefulWidget {
   final Esp32ConnectionService service;
