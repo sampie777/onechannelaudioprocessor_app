@@ -22,6 +22,7 @@ class Esp32ConnectionService extends ChangeNotifier {
   bool _isConnected = false;
 
   WebSocketChannel? _wsChannel;
+  StreamSubscription? _wsSubscription; // Store stream subscription
   UdpMeterService? udpService;
 
   // Demo Mode Members
@@ -61,7 +62,8 @@ class Esp32ConnectionService extends ChangeNotifier {
       // Wrap the successfully connected socket into the channel
       _wsChannel = IOWebSocketChannel(ws);
 
-      _wsChannel!.stream.listen(
+      // Save subscription reference to cancel it on disconnect
+      _wsSubscription = _wsChannel!.stream.listen(
         (data) => _parseIncomingData(data.toString()),
         onError: (error) {
           dev.log("Error while listening to websocket: $error", error: error);
@@ -71,6 +73,7 @@ class Esp32ConnectionService extends ChangeNotifier {
           dev.log("Websocket stream is done.");
           disconnect();
         },
+        cancelOnError: true, // Automatically cancel stream on error
       );
 
       udpService = UdpMeterService();
@@ -101,7 +104,6 @@ class Esp32ConnectionService extends ChangeNotifier {
     _isConnected = true;
     _currentMixerState.device.inputJackDetected.value = true;
     _currentMixerState.device.outputXlrDetected.value = true;
-    _currentMixerState.routing.lineStereoToPga.value = true;
     _currentMixerState.routing.lineStereoToPga.value = true;
     notifyListeners();
 
@@ -155,10 +157,7 @@ class Esp32ConnectionService extends ChangeNotifier {
     _currentMixerState.updateFromCommands(commands);
     _stateController.add(_currentMixerState);
 
-    if (_activeType == ConnectionType.demo) {
-      // In demo mode, local state is already updated above, no socket needed
-      return;
-    }
+    if (_activeType == ConnectionType.demo) return;
 
     List<String> parts = [];
     commands.forEach((key, value) {
@@ -178,18 +177,19 @@ class Esp32ConnectionService extends ChangeNotifier {
     try {
       final decoded = jsonDecode(rawJson);
       if (decoded is Map<String, dynamic>) {
-        // 2. Update the existing state in-place with whatever keys are present
+        // Update the existing state in-place with whatever keys are present
         _currentMixerState.updateFromJson(decoded);
 
-        // 3. Push the updated state object to the stream to trigger UI rebuilds
+        // Push the updated state object to the stream to trigger UI rebuilds
         _stateController.add(_currentMixerState);
       }
-    } catch (_) {
-      // Ignore framing or parse errors
-    }
+    } catch (_) {}
   }
 
   Future<void> disconnect() async {
+    // Guard: Don't execute multiple disconnect cleanups if already disconnected
+    if (!_isConnected && _wsChannel == null && _wsSubscription == null) return;
+
     dev.log(
       "Disconnecting current connection.\n"
       "\t_isConnected=$_isConnected;\n"
@@ -199,10 +199,16 @@ class Esp32ConnectionService extends ChangeNotifier {
     _demoTimer?.cancel();
     _demoTimer = null;
 
-    await _wsChannel?.sink.close();
-    udpService?.stopListening();
+    // Explicitly cancel subscription first so onError/onDone won't fire again
+    await _wsSubscription?.cancel();
+    _wsSubscription = null;
 
+    await _wsChannel?.sink.close();
     _wsChannel = null;
+
+    udpService?.stopListening();
+    udpService = null;
+
     _isConnected = false;
     _activeType = null;
     notifyListeners();
