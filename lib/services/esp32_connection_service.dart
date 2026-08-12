@@ -118,8 +118,9 @@ class Esp32ConnectionService extends ChangeNotifier {
       baseSignal += sin(timer.tick / 0.9) * 0.05;
       baseSignal = baseSignal.abs();
 
-      double rawPeak = baseSignal + pow(_random.nextDouble(), 2).toDouble() * 0.1;
-      double avgPeak = (rawPeak * 0.1) + (_random.nextDouble() * 0.1);;
+      double rawPeak =
+          baseSignal + pow(_random.nextDouble(), 2).toDouble() * 0.1;
+      double avgPeak = (rawPeak * 0.1) + (_random.nextDouble() * 0.1);
 
       // Create update payload matching the json format
       final mockJson = {

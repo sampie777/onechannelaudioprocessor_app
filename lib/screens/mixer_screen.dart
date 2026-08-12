@@ -2,6 +2,7 @@ import 'dart:developer' as dev;
 
 import 'package:flutter/material.dart';
 import 'package:onechannelaudioprocessor/screens/settings_screen.dart';
+import 'package:onechannelaudioprocessor/screens/state_debug_screen.dart';
 
 import '../models/mixer_state.dart';
 import '../services/esp32_connection_service.dart';
@@ -132,6 +133,17 @@ class _MixerScreenState extends State<MixerScreen> {
       appBar: AppBar(
         title: const Text('MiniMixer'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.bug_report, color: Colors.amber),
+            tooltip: 'Device Control',
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => StateDebugScreen(service: widget.service),
+                ),
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.settings_input_composite),
             tooltip: 'Advanced Controls',
