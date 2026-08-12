@@ -6,6 +6,7 @@ import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:onechannelaudioprocessor/services/udp_meter_service.dart';
+import 'package:onechannelaudioprocessor/utils/math.dart';
 import 'package:web_socket_channel/io.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
@@ -35,6 +36,7 @@ class Esp32ConnectionService extends ChangeNotifier {
   bool get isConnected => _isConnected;
 
   ConnectionType? get activeType => _activeType;
+
   ConnectionType? get lastConnectionType => _lastConnectionType;
 
   Future<void> connectWifi(String ipAddress) async {
@@ -107,7 +109,6 @@ class Esp32ConnectionService extends ChangeNotifier {
     _demoTimer?.cancel();
     _demoTimer = Timer.periodic(const Duration(milliseconds: 50), (timer) {
       if (!_isConnected || _activeType != ConnectionType.demo) return;
-
       double baseSignal = 0;
       baseSignal += sin(timer.tick / 20) * 0.1;
       baseSignal += sin((timer.tick + 3) / 17) * 0.2;
@@ -118,14 +119,27 @@ class Esp32ConnectionService extends ChangeNotifier {
       baseSignal += sin(timer.tick / 0.9) * 0.05;
       baseSignal = baseSignal.abs();
 
-      double rawPeak =
-          baseSignal + pow(_random.nextDouble(), 2).toDouble() * 0.1;
-      double avgPeak = (rawPeak * 0.1) + (_random.nextDouble() * 0.1);
+      // Apply input gain in dBFS only if signal is non-zero
+      if (baseSignal > 0.00001) {
+        double inputGain = _currentMixerState.pga.gain.value;
+        // Simulate the effect of mic vs line input on the signal level
+        double inputTypeGain = _currentMixerState.routing.micToPga.value ? -30 : 0;
 
-      // Create update payload matching the json format
+        double baseSignalDbfs = rawToDbfs(baseSignal) + inputGain + inputTypeGain;
+        baseSignal = dbfsToRaw(baseSignalDbfs);
+      }
+
+      double rawPeak = baseSignal + pow(_random.nextDouble(), 2).toDouble() * 0.1;
+      // Clamp to 1.0 maximum to simulate hard analog/digital clipping at 0 dBFS
+      rawPeak = rawPeak.clamp(0.0001, 1.0);
+
+      // Calculate average peak based on the boosted raw peak
+      double avgPeak = (rawPeak * 0.7) + (_random.nextDouble() * 0.05);
+      avgPeak = avgPeak.clamp(0.0001, rawPeak); // Avg shouldn't exceed raw peak
+
       final mockJson = {
-        'peak_over_period': rawPeak.clamp(0.01, 1.0),
-        'avg_peak_over_period': avgPeak.clamp(0.01, 1.0),
+        'peak_over_period': rawPeak,
+        'avg_peak_over_period': avgPeak,
       };
 
       _parseIncomingData(jsonEncode(mockJson));

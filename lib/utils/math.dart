@@ -10,7 +10,8 @@ double rawToDbfs(double value) {
 }
 
 double dbfsToRaw(double value) {
-  return 1 - pow(10, value / 20).toDouble();
+  if (value <= minDBFS) return 0.0;
+  return pow(10, value / 20).toDouble().clamp(0.0, 1.0);
 }
 
 double dbfsToDbLinear(double value) {
