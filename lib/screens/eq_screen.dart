@@ -33,11 +33,11 @@ class _EqScreenState extends State<EqScreen> {
   static const List<int> _highShelfFreqs = [5300, 6900, 9000, 11700];
 
   void _resetBand(
-    String band,
-    dynamic filter,
-    int defaultFreq, {
-    bool isParametric = false,
-  }) {
+      String band,
+      dynamic filter,
+      int defaultFreq, {
+        bool isParametric = false,
+      }) {
     final Map<String, String> commands = {};
 
     // Clear client-side bypass memory
@@ -155,7 +155,7 @@ class _EqScreenState extends State<EqScreen> {
                   }),
                 ),
                 Switch(
-                  value: filter.enabled.value, // HPF uses hardware enable
+                  value: filter.enabled.value,
                   onChanged: (val) => widget.service.sendCommands({
                     filter.enabled.command: val ? 't' : 'f',
                   }),
@@ -178,11 +178,11 @@ class _EqScreenState extends State<EqScreen> {
   }
 
   Widget _buildShelfCard(
-    String title,
-    String bandKey,
-    ShelfFilter filter,
-    List<int> allowedFreqs,
-  ) {
+      String title,
+      String bandKey,
+      ShelfFilter filter,
+      List<int> allowedFreqs,
+      ) {
     return Card(
       elevation: 2,
       child: Padding(
@@ -236,7 +236,6 @@ class _EqScreenState extends State<EqScreen> {
               value: filter.uiGain,
               onChanged: (val) {
                 if (filter.isBypassed) {
-                  // Only update locally if bypassed to prevent un-bypassing
                   setState(() => filter.storedGain = val);
                 } else {
                   widget.service.sendCommands({
@@ -252,11 +251,11 @@ class _EqScreenState extends State<EqScreen> {
   }
 
   Widget _buildParametricCard(
-    String title,
-    String bandKey,
-    ParametricEqBand filter,
-    List<int> allowedFreqs,
-  ) {
+      String title,
+      String bandKey,
+      ParametricEqBand filter,
+      List<int> allowedFreqs,
+      ) {
     return Card(
       elevation: 2,
       child: Padding(
@@ -405,10 +404,7 @@ class _EqScreenState extends State<EqScreen> {
         Expanded(
           child: LayoutBuilder(
             builder: (context, constraints) {
-              // Calculate the fractional position of 0 dB (0.0 to 1.0)
               final double fraction = (0.0 - min) / (max - min);
-
-              // The default horizontal padding of a Material Slider is 24px on each side
               const double trackPadding = 26.0;
               final double trackWidth =
                   constraints.maxWidth - (trackPadding * 2);
@@ -418,22 +414,18 @@ class _EqScreenState extends State<EqScreen> {
               return Stack(
                 alignment: Alignment.center,
                 children: [
-                  // Only draw the tick mark if 0 dB is actually within the slider's range
                   if (min <= 0 && max >= 0)
                     Positioned(
                       left: leftPosition - 1,
-                      // Offset by half the line width (2px) to center it
                       child: Container(
                         width: 2,
-                        height: 30, // Slightly taller than the slider track
+                        height: 30,
                         decoration: BoxDecoration(
                           color: Colors.grey.withAlpha(150),
                           borderRadius: BorderRadius.circular(1),
                         ),
                       ),
                     ),
-
-                  // The main Slider
                   Slider(
                     value: clampedValue.clamp(min, max),
                     min: min,
@@ -492,8 +484,9 @@ class EqCurvePainter extends CustomPainter {
 
     _drawGridAndLabels(canvas, size);
 
-    // Calculate curve points
-    final Path curvePath = Path();
+    // Calculate curve points for both active and preview paths
+    final Path activePath = Path();
+    final Path previewPath = Path();
     final int resolution = size.width.toInt();
 
     bool isFirst = true;
@@ -502,40 +495,65 @@ class EqCurvePainter extends CustomPainter {
       final double x = i.toDouble();
       final double freq = _xToFreq(x, size.width);
 
-      double totalGain = 0;
+      // Active state calculation
+      double activeGain = 0;
+      activeGain += _calcHighPassGain(freq);
+      activeGain += _calcShelfGain(freq, eqState.lowShelf, true);
+      activeGain += _calcShelfGain(freq, eqState.highShelf, false);
+      activeGain += _calcParametricGain(freq, eqState.low);
+      activeGain += _calcParametricGain(freq, eqState.mid);
+      activeGain += _calcParametricGain(freq, eqState.high);
 
-      totalGain += _calcHighPassGain(freq);
-      totalGain += _calcShelfGain(freq, eqState.lowShelf, true);
-      totalGain += _calcShelfGain(freq, eqState.highShelf, false);
-      totalGain += _calcParametricGain(freq, eqState.low);
-      totalGain += _calcParametricGain(freq, eqState.mid);
-      totalGain += _calcParametricGain(freq, eqState.high);
+      // Preview state calculation (as if ALL bands were enabled)
+      double previewGain = 0;
+      previewGain += _calcHighPassGain(freq, forceActive: true);
+      previewGain += _calcShelfGain(freq, eqState.lowShelf, true, useUiGain: true);
+      previewGain += _calcShelfGain(freq, eqState.highShelf, false, useUiGain: true);
+      previewGain += _calcParametricGain(freq, eqState.low, useUiGain: true);
+      previewGain += _calcParametricGain(freq, eqState.mid, useUiGain: true);
+      previewGain += _calcParametricGain(freq, eqState.high, useUiGain: true);
 
-      final double y = _dbToY(totalGain, size.height);
+      final double yActive = _dbToY(activeGain, size.height);
+      final double yPreview = _dbToY(previewGain, size.height);
 
       if (isFirst) {
-        curvePath.moveTo(x, y);
+        activePath.moveTo(x, yActive);
+        previewPath.moveTo(x, yPreview);
         isFirst = false;
       } else {
-        curvePath.lineTo(x, y);
+        activePath.lineTo(x, yActive);
+        previewPath.lineTo(x, yPreview);
       }
     }
 
-    // Draw the glowing line
+    // 1. Draw Preview Graph (Grayed out, behind the active line)
+    final previewLinePaint = Paint()
+      ..color = Colors.white38
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0
+      ..strokeJoin = StrokeJoin.round;
+    canvas.drawPath(previewPath, previewLinePaint);
+
+    final previewFillPath = Path.from(previewPath)
+      ..lineTo(size.width, size.height)
+      ..lineTo(0, size.height)
+      ..close();
+    final previewFillPaint = Paint()..color = Colors.white10;
+    canvas.drawPath(previewFillPath, previewFillPaint);
+
+    // 2. Draw Active Line
     final linePaint = Paint()
       ..color = Colors.cyanAccent
       ..style = PaintingStyle.stroke
       ..strokeWidth = 3.0
       ..strokeJoin = StrokeJoin.round;
+    canvas.drawPath(activePath, linePaint);
 
-    canvas.drawPath(curvePath, linePaint);
-
-    // Gradient fill below the curve
-    final fillPath = Path.from(curvePath)
+    // 3. Draw Active Gradient fill below the curve
+    final fillPath = Path.from(activePath)
       ..lineTo(size.width, size.height)
       ..lineTo(0, size.height)
       ..close();
-
     final fillPaint = Paint()
       ..shader = LinearGradient(
         begin: Alignment.topCenter,
@@ -545,8 +563,34 @@ class EqCurvePainter extends CustomPainter {
           Colors.cyanAccent.withOpacity(0.0),
         ],
       ).createShader(Offset.zero & size);
-
     canvas.drawPath(fillPath, fillPaint);
+
+    // 4. Draw Interactive Dots for each band
+    // High Pass is placed at 0 dB, since it doesn't have a vertical gain parameter
+    _drawBandDot(canvas, size, eqState.highPass.frequency.value.toDouble(), 0.0, eqState.highPass.enabled.value);
+    _drawBandDot(canvas, size, eqState.lowShelf.frequency.value.toDouble(), eqState.lowShelf.uiGain.toDouble(), !eqState.lowShelf.isBypassed);
+    _drawBandDot(canvas, size, eqState.low.frequency.value.toDouble(), eqState.low.uiGain.toDouble(), !eqState.low.isBypassed);
+    _drawBandDot(canvas, size, eqState.mid.frequency.value.toDouble(), eqState.mid.uiGain.toDouble(), !eqState.mid.isBypassed);
+    _drawBandDot(canvas, size, eqState.high.frequency.value.toDouble(), eqState.high.uiGain.toDouble(), !eqState.high.isBypassed);
+    _drawBandDot(canvas, size, eqState.highShelf.frequency.value.toDouble(), eqState.highShelf.uiGain.toDouble(), !eqState.highShelf.isBypassed);
+  }
+
+  // Helper method to draw the band handle dot
+  void _drawBandDot(Canvas canvas, Size size, double freq, double db, bool isActive) {
+    final double x = _freqToX(freq, size.width);
+    final double y = _dbToY(db, size.height);
+
+    final Paint fillPaint = Paint()
+      ..color = isActive ? Colors.cyanAccent : Colors.white38
+      ..style = PaintingStyle.fill;
+
+    final Paint outlinePaint = Paint()
+      ..color = Colors.black87
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0;
+
+    canvas.drawCircle(Offset(x, y), 5.0, fillPaint);
+    canvas.drawCircle(Offset(x, y), 5.0, outlinePaint);
   }
 
   // --- Grid drawing ---
@@ -594,22 +638,19 @@ class EqCurvePainter extends CustomPainter {
 
   // --- Math Approximations for UI Drawing ---
 
-  double _calcHighPassGain(double f) {
-    if (!eqState.highPass.enabled.value) return 0.0;
+  double _calcHighPassGain(double f, {bool forceActive = false}) {
+    if (!forceActive && !eqState.highPass.enabled.value) return 0.0;
 
     final double fc = eqState.highPass.frequency.value.toDouble();
-
     final int order = (fc <= 4.0) ? 1 : 2;
 
-    // Standard Butterworth high-pass magnitude response formula
-    // Gain(dB) = -10 * log10( 1 + (fc / f)^(2 * order) )
     return -10.0 * (log(1.0 + pow(fc / f, 2 * order)) / ln10);
   }
 
-  double _calcShelfGain(double f, ShelfFilter filter, bool isLowShelf) {
-    if (filter.isBypassed) return 0.0;
+  double _calcShelfGain(double f, ShelfFilter filter, bool isLowShelf, {bool useUiGain = false}) {
+    if (!useUiGain && filter.isBypassed) return 0.0;
 
-    final double gain = filter.gain.value.toDouble();
+    final double gain = useUiGain ? filter.uiGain.toDouble() : filter.gain.value.toDouble();
     if (gain == 0) return 0.0;
 
     final double fc = filter.frequency.value.toDouble();
@@ -621,14 +662,13 @@ class EqCurvePainter extends CustomPainter {
     }
   }
 
-  double _calcParametricGain(double f, ParametricEqBand band) {
-    if (band.isBypassed) return 0.0;
+  double _calcParametricGain(double f, ParametricEqBand band, {bool useUiGain = false}) {
+    if (!useUiGain && band.isBypassed) return 0.0;
 
-    final double gain = band.gain.value.toDouble();
+    final double gain = useUiGain ? band.uiGain.toDouble() : band.gain.value.toDouble();
     if (gain == 0) return 0.0;
 
     final double fc = band.frequency.value.toDouble();
-
     final double q = band.band.value == 'wide' ? 0.75 : 1.8;
 
     final double logDist = log(f / fc);
