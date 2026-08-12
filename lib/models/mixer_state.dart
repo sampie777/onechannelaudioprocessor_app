@@ -167,9 +167,9 @@ class HeadphonesState extends MixerModule {
 }
 
 class AuxOutState extends MixerModule {
-  final Lockable<bool> mute = Lockable(false, command: 'aux.mute');
-  final Lockable<bool> gainBoost = Lockable(false, command: 'aux.gain_boost');
-  final Lockable<bool> balanced = Lockable(false, command: 'aux.balanced');
+  final Lockable<bool> mute = Lockable(false, command: 'auxout.mute');
+  final Lockable<bool> gainBoost = Lockable(false, command: 'auxout.gain_boost');
+  final Lockable<bool> balanced = Lockable(false, command: 'auxout.balanced');
 
   @override
   Map<String, Lockable> get properties => {
