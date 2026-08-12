@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/mixer_state.dart';
 import '../services/esp32_connection_service.dart';
+import '../widgets/horizontal_audio_meter.dart';
 import '../widgets/volume_slider.dart';
 
 class AdvancedControlsScreen extends StatefulWidget {
@@ -189,7 +190,7 @@ class _AdvancedControlsScreenState extends State<AdvancedControlsScreen> {
                         wasLineMono = isMono;
                       },
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 32),
 
               VolumeSlider(
                 service: widget.service,
@@ -201,7 +202,12 @@ class _AdvancedControlsScreenState extends State<AdvancedControlsScreen> {
                 stepSize: 0.75,
               ),
 
-              const Divider(height: 48),
+              const SizedBox(height: 20),
+              HorizontalAudioMeterWidget(
+                peak: state.peakOverPeriod,
+              ),
+
+              const Divider(height: 64),
 
               const Text(
                 'Output Settings',
