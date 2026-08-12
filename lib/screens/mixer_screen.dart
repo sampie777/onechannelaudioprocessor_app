@@ -127,144 +127,183 @@ class _MixerScreenState extends State<MixerScreen> {
     }
   }
 
+  /// Prompts the user with a confirmation dialog.
+  /// If confirmed, executes the disconnection and navigates to [ConnectionScreen].
+  Future<void> _confirmAndDisconnect() async {
+    final bool? shouldDisconnect = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Disconnect?'),
+          content: const Text(
+            'Are you sure you want to disconnect from the mixer?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Disconnect'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldDisconnect == true) {
+      await _handleManualDisconnect();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('MiniMixer'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.bug_report, color: Colors.amber),
-            tooltip: 'Device Control',
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => StateDebugScreen(service: widget.service),
-                ),
-              );
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.settings_input_composite),
-            tooltip: 'Advanced Controls',
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) =>
-                      AdvancedControlsScreen(service: widget.service),
-                ),
-              );
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.tune),
-            tooltip: 'Equalizer',
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => EqScreen(service: widget.service),
-                ),
-              );
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.settings),
-            tooltip: 'Settings',
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => SettingsScreen(service: widget.service),
-                ),
-              );
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.power_settings_new),
-            tooltip: 'Disconnect',
-            onPressed: _handleManualDisconnect,
-          ),
-        ],
-      ),
-      body: Stack(
-        children: [
-          StreamBuilder<MixerState>(
-            stream: widget.service.stateStream,
-            builder: (context, snapshot) {
-              final state = snapshot.data ?? MixerState();
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        _confirmAndDisconnect();
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('MiniMixer'),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.bug_report, color: Colors.amber),
+              tooltip: 'Device Control',
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => StateDebugScreen(service: widget.service),
+                  ),
+                );
+              },
+            ),
+            IconButton(
+              icon: const Icon(Icons.settings_input_composite),
+              tooltip: 'Advanced Controls',
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) =>
+                        AdvancedControlsScreen(service: widget.service),
+                  ),
+                );
+              },
+            ),
+            IconButton(
+              icon: const Icon(Icons.tune),
+              tooltip: 'Equalizer',
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => EqScreen(service: widget.service),
+                  ),
+                );
+              },
+            ),
+            IconButton(
+              icon: const Icon(Icons.settings),
+              tooltip: 'Settings',
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => SettingsScreen(service: widget.service),
+                  ),
+                );
+              },
+            ),
+            IconButton(
+              icon: const Icon(Icons.power_settings_new),
+              tooltip: 'Disconnect',
+              onPressed: _confirmAndDisconnect,
+            ),
+          ],
+        ),
+        body: Stack(
+          children: [
+            StreamBuilder<MixerState>(
+              stream: widget.service.stateStream,
+              builder: (context, snapshot) {
+                final state = snapshot.data ?? MixerState();
 
-              return Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24.0,
-                  vertical: 16.0,
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    AudioMeterWidget(
-                      peak: state.peakOverPeriod,
-                      width: 20,
-                      label: "Max",
-                    ),
-
-                    Expanded(
-                      child: AudioFaderWidget(
-                        showVolumeValueText: false,
-                        value: state.dac.volume.value.toDouble(),
-                        isMuted: state.speaker.mute.value,
-                        scaleTicks: const [
-                          -127,
-                          -80.0,
-                          -40.0,
-                          -20.0,
-                          -10.0,
-                          -5.0,
-                          0.0,
-                        ],
-                        onChanged: (val) {
-                          // Limit to 0.5 dB interval changes
-                          double value = (val * 2).toInt().toDouble() / 2;
-                          widget.service.sendCommands({
-                            state.dac.volume.command: value.toStringAsFixed(1),
-                          });
-                        },
-                        onMuteToggled: () {
-                          widget.service.sendCommands({
-                            state.speaker.mute.command: state.speaker.mute.value
-                                ? 'f'
-                                : 't',
-                          });
-                        },
+                return Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24.0,
+                    vertical: 16.0,
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      AudioMeterWidget(
+                        peak: state.peakOverPeriod,
+                        width: 20,
+                        label: "Max",
                       ),
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
 
-          if (_isReconnecting)
-            Container(
-              color: Colors.black.withAlpha(178),
-              child: Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const CircularProgressIndicator(),
-                    const SizedBox(height: 24),
-                    Text(
-                      'Reconnecting...',
-                      style: Theme.of(context).textTheme.headlineSmall,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Attempt $_reconnectAttempts of 3',
-                      style: const TextStyle(color: Colors.grey),
-                    ),
-                  ],
+                      Expanded(
+                        child: AudioFaderWidget(
+                          showVolumeValueText: false,
+                          value: state.dac.volume.value.toDouble(),
+                          isMuted: state.speaker.mute.value,
+                          scaleTicks: const [
+                            -127,
+                            -80.0,
+                            -40.0,
+                            -20.0,
+                            -10.0,
+                            -5.0,
+                            0.0,
+                          ],
+                          onChanged: (val) {
+                            // Limit to 0.5 dB interval changes
+                            double value = (val * 2).toInt().toDouble() / 2;
+                            widget.service.sendCommands({
+                              state.dac.volume.command: value.toStringAsFixed(
+                                1,
+                              ),
+                            });
+                          },
+                          onMuteToggled: () {
+                            widget.service.sendCommands({
+                              state.speaker.mute.command:
+                                  state.speaker.mute.value ? 'f' : 't',
+                            });
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+
+            if (_isReconnecting)
+              Container(
+                color: Colors.black.withAlpha(178),
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const CircularProgressIndicator(),
+                      const SizedBox(height: 24),
+                      Text(
+                        'Reconnecting...',
+                        style: Theme.of(context).textTheme.headlineSmall,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Attempt $_reconnectAttempts of 3',
+                        style: const TextStyle(color: Colors.grey),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }
