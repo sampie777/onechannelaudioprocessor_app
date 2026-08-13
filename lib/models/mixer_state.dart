@@ -134,9 +134,13 @@ class PgaState extends MixerModule {
 
 class AdcState extends MixerModule {
   final Lockable<double> volume = Lockable(0.0, command: 'adc.volume');
+  final Lockable<bool> i2sPcmMode = Lockable(true, command: 'adc.i2s_pcm_mode');
 
   @override
-  Map<String, Lockable> get properties => {'volume': volume};
+  Map<String, Lockable> get properties => {
+    'volume': volume,
+    'i2s_pcm_mode': i2sPcmMode,
+  };
 }
 
 class DacState extends MixerModule {
@@ -173,7 +177,10 @@ class HeadphonesState extends MixerModule {
 
 class AuxOutState extends MixerModule {
   final Lockable<bool> mute = Lockable(false, command: 'auxout.mute');
-  final Lockable<bool> gainBoost = Lockable(false, command: 'auxout.gain_boost');
+  final Lockable<bool> gainBoost = Lockable(
+    false,
+    command: 'auxout.gain_boost',
+  );
   final Lockable<bool> balanced = Lockable(false, command: 'auxout.balanced');
 
   @override
@@ -224,12 +231,30 @@ class DeviceState extends MixerModule {
     true,
     command: 'device.enable_status_lights',
   );
-  final Lockable<bool> buttonMiscPressed = Lockable(false, command: 'device.button_misc_pressed');
-  final Lockable<bool> groundLiftEnabled = Lockable(false, command: 'device.ground_lift_enabled');
-  final Lockable<bool> inputXlrDetected = Lockable(false, command: 'device.input_xlr_detected');
-  final Lockable<bool> inputJackDetected = Lockable(false, command: 'device.input_jack_detected');
-  final Lockable<bool> outputXlrDetected = Lockable(false, command: 'device.output_xlr_detected');
-  final Lockable<bool> outputJackDetected = Lockable(false, command: 'device.output_jack_detected');
+  final Lockable<bool> buttonMiscPressed = Lockable(
+    false,
+    command: 'device.button_misc_pressed',
+  );
+  final Lockable<bool> groundLiftEnabled = Lockable(
+    false,
+    command: 'device.ground_lift_enabled',
+  );
+  final Lockable<bool> inputXlrDetected = Lockable(
+    false,
+    command: 'device.input_xlr_detected',
+  );
+  final Lockable<bool> inputJackDetected = Lockable(
+    false,
+    command: 'device.input_jack_detected',
+  );
+  final Lockable<bool> outputXlrDetected = Lockable(
+    false,
+    command: 'device.output_xlr_detected',
+  );
+  final Lockable<bool> outputJackDetected = Lockable(
+    false,
+    command: 'device.output_jack_detected',
+  );
 
   @override
   Map<String, Lockable> get properties => {
@@ -244,15 +269,10 @@ class DeviceState extends MixerModule {
 }
 
 class WifiState extends MixerModule {
-  final Lockable<String> ssid = Lockable(
-    "",
-    command: 'wifi.ssid',
-  );
+  final Lockable<String> ssid = Lockable("", command: 'wifi.ssid');
 
   @override
-  Map<String, Lockable> get properties => {
-    'ssid': ssid,
-  };
+  Map<String, Lockable> get properties => {'ssid': ssid};
 }
 
 // -----------------------------------------------------------------------------
@@ -496,7 +516,10 @@ class MixerState {
           final int? regAddr = int.tryParse(parts[1]);
           final int? regValue = int.tryParse(value);
 
-          if (regAddr != null && regAddr >= 0 && regAddr < 128 && regValue != null) {
+          if (regAddr != null &&
+              regAddr >= 0 &&
+              regAddr < 128 &&
+              regValue != null) {
             nau88Registers[regAddr] = regValue;
           }
         }
