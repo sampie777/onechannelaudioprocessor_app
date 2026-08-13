@@ -5,6 +5,7 @@ import 'dart:io';
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
+import 'package:onechannelaudioprocessor/services/ping_service.dart';
 import 'package:onechannelaudioprocessor/services/udp_meter_service.dart';
 import 'package:onechannelaudioprocessor/utils/math.dart';
 import 'package:web_socket_channel/io.dart';
@@ -22,8 +23,10 @@ class Esp32ConnectionService extends ChangeNotifier {
   bool _isConnected = false;
 
   WebSocketChannel? _wsChannel;
-  StreamSubscription? _wsSubscription; // Store stream subscription
+  StreamSubscription? _wsSubscription;
   UdpMeterService? udpService;
+
+  final PingService pingService = PingService();
 
   // Demo Mode Members
   Timer? _demoTimer;
@@ -35,9 +38,7 @@ class Esp32ConnectionService extends ChangeNotifier {
   final MixerState _currentMixerState = MixerState();
 
   bool get isConnected => _isConnected;
-
   ConnectionType? get activeType => _activeType;
-
   ConnectionType? get lastConnectionType => _lastConnectionType;
 
   Future<void> connectWifi(String ipAddress) async {
@@ -62,7 +63,6 @@ class Esp32ConnectionService extends ChangeNotifier {
       // Wrap the successfully connected socket into the channel
       _wsChannel = IOWebSocketChannel(ws);
 
-      // Save subscription reference to cancel it on disconnect
       _wsSubscription = _wsChannel!.stream.listen(
         (data) => _parseIncomingData(data.toString()),
         onError: (error) {
@@ -73,7 +73,7 @@ class Esp32ConnectionService extends ChangeNotifier {
           dev.log("Websocket stream is done.");
           disconnect();
         },
-        cancelOnError: true, // Automatically cancel stream on error
+        cancelOnError: true,
       );
 
       udpService = UdpMeterService();
@@ -85,11 +85,16 @@ class Esp32ConnectionService extends ChangeNotifier {
 
       _activeType = ConnectionType.wifi;
       _isConnected = true;
+
+      // Start ping loop on successful connection
+      pingService.start(_wsChannel!);
+
       notifyListeners();
     } catch (e) {
       dev.log("Failed to connect to IP address: $ipAddress.");
       _isConnected = false;
       _wsChannel = null;
+      pingService.stop();
       notifyListeners();
       rethrow; // Throws back to the UI so the catch block dismisses the spinner
     }
@@ -177,9 +182,14 @@ class Esp32ConnectionService extends ChangeNotifier {
     try {
       final decoded = jsonDecode(rawJson);
       if (decoded is Map<String, dynamic>) {
+        // Forward pong payloads to PingService
+        if (decoded.containsKey('pong')) {
+          pingService.handleIncomingJson(decoded);
+          return;
+        }
+
         // Update the existing state in-place with whatever keys are present
         _currentMixerState.updateFromJson(decoded);
-
         // Push the updated state object to the stream to trigger UI rebuilds
         _stateController.add(_currentMixerState);
       }
@@ -199,7 +209,8 @@ class Esp32ConnectionService extends ChangeNotifier {
     _demoTimer?.cancel();
     _demoTimer = null;
 
-    // Explicitly cancel subscription first so onError/onDone won't fire again
+    pingService.stop();
+
     await _wsSubscription?.cancel();
     _wsSubscription = null;
 

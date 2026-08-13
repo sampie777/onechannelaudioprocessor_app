@@ -7,6 +7,7 @@ import 'package:onechannelaudioprocessor/screens/state_debug_screen.dart';
 import '../models/mixer_state.dart';
 import '../services/esp32_connection_service.dart';
 import '../widgets/audio_fader/audio_fader.dart';
+import '../widgets/ping_indicator_widget.dart';
 import '../widgets/vu_meter/audio_meter.dart';
 import 'advanced_controls_screen.dart';
 import 'connection_screen.dart';
@@ -86,6 +87,8 @@ class _MixerScreenState extends State<MixerScreen> {
 
       try {
         await Future.delayed(const Duration(seconds: 2));
+        if (!mounted) return;
+
         await widget.service.reconnect();
 
         // If reconnect() didn't throw an error, it succeeded!
@@ -170,6 +173,17 @@ class _MixerScreenState extends State<MixerScreen> {
         appBar: AppBar(
           title: const Text('MiniMixer'),
           actions: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8.0),
+              child: ListenableBuilder(
+                listenable: widget.service.pingService,
+                builder: (context, _) {
+                  return PingIndicatorWidget(
+                    pingMs: widget.service.pingService.pingMs,
+                  );
+                },
+              ),
+            ),
             IconButton(
               icon: const Icon(Icons.bug_report, color: Colors.amber),
               tooltip: 'Device Control',
