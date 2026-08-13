@@ -40,6 +40,7 @@ class Esp32ConnectionService extends ChangeNotifier {
   bool get isConnected => _isConnected;
   ConnectionType? get activeType => _activeType;
   ConnectionType? get lastConnectionType => _lastConnectionType;
+  String? get connectedIpAddress => _lastIpAddress;
 
   Future<void> connectWifi(String ipAddress) async {
     dev.log("Connecting to IP address: $ipAddress");

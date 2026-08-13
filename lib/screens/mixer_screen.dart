@@ -181,7 +181,7 @@ class _MixerScreenState extends State<MixerScreen> {
       },
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('MiniMixer'),
+          title: Text(widget.service.connectedIpAddress ?? 'MiniMixer'),
           actions: [
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8.0),
