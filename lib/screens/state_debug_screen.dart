@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/mixer_state.dart';
 import '../services/esp32_connection_service.dart';
+import 'nau88_register_edit_screen.dart';
 
 class StateDebugScreen extends StatelessWidget {
   final Esp32ConnectionService service;
@@ -65,6 +66,19 @@ class StateDebugScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Device Control'),
         backgroundColor: Colors.blueGrey.shade900,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.memory, color: Colors.cyanAccent),
+            tooltip: 'NAU8822 Registers',
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => Nau88RegisterEditScreen(service: service),
+                ),
+              );
+            },
+          ),
+        ],
       ),
       body: StreamBuilder<MixerState>(
         stream: service.stateStream,

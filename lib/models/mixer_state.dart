@@ -454,6 +454,8 @@ class MixerState {
     _modules['wifi'] = wifi;
   }
 
+  List<int> nau88Registers = List.filled(128, 0);
+
   double get peakDbfs => rawToDbfs(peakOverPeriod);
 
   double get avgPeakDbfs => rawToDbfs(avgPeakOverPeriod);
@@ -466,6 +468,13 @@ class MixerState {
     }
     if (json.containsKey('avg_peak_over_period')) {
       avgPeakOverPeriod = (json['avg_peak_over_period'] as num).toDouble();
+    }
+
+    if (json.containsKey('nau88_reg')) {
+      final List<dynamic> regs = json['nau88_reg'];
+      for (int i = 0; i < regs.length && i < 128; i++) {
+        nau88Registers[i] = (regs[i] as num).toInt();
+      }
     }
 
     // 2. Slow UI State Updates routed automatically
@@ -482,6 +491,15 @@ class MixerState {
       final parts = key.split('.');
       if (parts.isNotEmpty) {
         final moduleName = parts[0];
+
+        if (moduleName == 'nau88_reg' && parts.length == 2) {
+          final int? regAddr = int.tryParse(parts[1]);
+          final int? regValue = int.tryParse(value);
+
+          if (regAddr != null && regAddr >= 0 && regAddr < 128 && regValue != null) {
+            nau88Registers[regAddr] = regValue;
+          }
+        }
 
         if (_modules.containsKey(moduleName)) {
           if (parts.length == 2) {
