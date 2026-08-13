@@ -47,6 +47,8 @@ class _MixerScreenState extends State<MixerScreen> {
       "\t_isManualDisconnect: $_isManualDisconnect;",
     );
 
+    if (!mounted) return;
+
     // 1. Connection Restored / Is Active
     if (widget.service.isConnected) {
       if (_isReconnecting && mounted) {
@@ -74,6 +76,8 @@ class _MixerScreenState extends State<MixerScreen> {
   }
 
   Future<void> _startAutoReconnect() async {
+    if (!mounted) return;
+
     setState(() {
       _isReconnecting = true;
       _reconnectAttempts = 0;
@@ -87,7 +91,9 @@ class _MixerScreenState extends State<MixerScreen> {
 
       try {
         await Future.delayed(const Duration(seconds: 2));
-        if (!mounted) return;
+
+        // Re-check mounted status after async delay
+        if (!mounted || _isManualDisconnect) return;
 
         await widget.service.reconnect();
 
@@ -102,6 +108,12 @@ class _MixerScreenState extends State<MixerScreen> {
     // 4. If we reach here, all 3 attempts failed.
     if (mounted && !_isManualDisconnect) {
       dev.log("Connection lost permanently.");
+
+      // Stop any lingering sockets before going back
+      await widget.service.disconnect();
+
+      if (!mounted) return;
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Connection lost permanently.'),
@@ -130,8 +142,6 @@ class _MixerScreenState extends State<MixerScreen> {
     }
   }
 
-  /// Prompts the user with a confirmation dialog.
-  /// If confirmed, executes the disconnection and navigates to [ConnectionScreen].
   Future<void> _confirmAndDisconnect() async {
     final bool? shouldDisconnect = await showDialog<bool>(
       context: context,

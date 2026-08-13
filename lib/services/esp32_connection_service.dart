@@ -130,13 +130,17 @@ class Esp32ConnectionService extends ChangeNotifier {
       if (baseSignal > 0.00001) {
         double inputGain = _currentMixerState.pga.gain.value;
         // Simulate the effect of mic vs line input on the signal level
-        double inputTypeGain = _currentMixerState.routing.micToPga.value ? -30 : 0;
+        double inputTypeGain = _currentMixerState.routing.micToPga.value
+            ? -30
+            : 0;
 
-        double baseSignalDbfs = rawToDbfs(baseSignal) + inputGain + inputTypeGain;
+        double baseSignalDbfs =
+            rawToDbfs(baseSignal) + inputGain + inputTypeGain;
         baseSignal = dbfsToRaw(baseSignalDbfs);
       }
 
-      double rawPeak = baseSignal + pow(_random.nextDouble(), 2).toDouble() * 0.1;
+      double rawPeak =
+          baseSignal + pow(_random.nextDouble(), 2).toDouble() * 0.1;
       // Clamp to 1.0 maximum to simulate hard analog/digital clipping at 0 dBFS
       rawPeak = rawPeak.clamp(0.0001, 1.0);
 
@@ -232,6 +236,13 @@ class Esp32ConnectionService extends ChangeNotifier {
       "\t_isConnected=$_isConnected;\n"
       "\t_activeType=$_activeType;",
     );
+
+    // Guard: Do not attempt reconnection if there's no stored endpoint/type
+    if (_lastConnectionType == null) {
+      dev.log("Reconnect aborted: No last connection type.");
+      return;
+    }
+
     if ((_lastConnectionType == ConnectionType.wifi ||
             _lastConnectionType == ConnectionType.direct) &&
         _lastIpAddress != null) {
