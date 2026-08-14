@@ -280,9 +280,15 @@ class DeviceState extends MixerModule {
 
 class WifiState extends MixerModule {
   final Lockable<String> ssid = Lockable("", command: 'wifi.ssid');
+  final Lockable<String> ip = Lockable("", command: 'wifi.ip');
+  final Lockable<bool> connected = Lockable(false, command: 'wifi.connected');
 
   @override
-  Map<String, Lockable> get properties => {'ssid': ssid};
+  Map<String, Lockable> get properties => {
+    'ssid': ssid,
+    'ip': ip,
+    'connected': connected,
+  };
 }
 
 // -----------------------------------------------------------------------------

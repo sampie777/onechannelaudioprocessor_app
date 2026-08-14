@@ -15,8 +15,13 @@ import 'mixer_screen.dart';
 
 class ConnectionScreen extends StatefulWidget {
   final Esp32ConnectionService service;
+  final String? autoConnectIp;
 
-  const ConnectionScreen({super.key, required this.service});
+  const ConnectionScreen({
+    super.key,
+    required this.service,
+    this.autoConnectIp,
+  });
 
   @override
   State<ConnectionScreen> createState() => _ConnectionScreenState();
@@ -54,7 +59,28 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
       });
     }
 
-    _loadSavedIps();
+    _initScreen();
+  }
+
+  Future<void> _initScreen() async {
+    await _loadSavedIps();
+
+    // If an IP was passed from DeviceSettingsScreen to auto-connect
+    if (widget.autoConnectIp != null && widget.autoConnectIp!.isNotEmpty) {
+      final targetIp = widget.autoConnectIp!;
+
+      await _saveSuccessfulIp(targetIp);
+
+      setState(() {
+        _selectedType = ConnectionType.wifi;
+        _ipController.text = targetIp;
+      });
+
+      // Start connection attempt immediately
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _handleConnect();
+      });
+    }
   }
 
   @override
