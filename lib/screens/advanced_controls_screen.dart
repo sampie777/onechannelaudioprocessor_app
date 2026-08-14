@@ -335,6 +335,34 @@ class _AdvancedControlsScreenState extends State<AdvancedControlsScreen> {
                         ],
                       ),
                     ),
+
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.withAlpha(20),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.grey.withAlpha(50)),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          SizedBox(
+                            width: 36,
+                            height: 36,
+                            child: CustomPaint(
+                              painter: JackConnectorPainter(
+                                isDetected:
+                                    state.device.outputJackDetected.value,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
                     Expanded(
                       child: Container(
                         padding: const EdgeInsets.symmetric(
