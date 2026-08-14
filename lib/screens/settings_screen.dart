@@ -34,9 +34,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       'wifi.password': password,
     });
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Wi-Fi credentials updated.')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Wi-Fi credentials updated.')));
   }
 
   @override
@@ -70,9 +70,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               const Text(
                 'Leave empty to disable external Wi-Fi',
-                style: TextStyle(
-                  color: Colors.grey,
-                ),
+                style: TextStyle(color: Colors.grey),
               ),
               const SizedBox(height: 16),
               TextField(
@@ -149,9 +147,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 },
                 onChangeEnd: (val) {
                   widget.service.sendCommands({
-                    state.client.smallUpdateIntervalMs.command: val.toInt().toString(),
+                    state.client.smallUpdateIntervalMs.command: val
+                        .toInt()
+                        .toString(),
                   });
                 },
+              ),
+              const SizedBox(height: 24),
+
+              Text(
+                'Device state version: ${state.stateVersion ?? 'none'}',
+                style: TextStyle(color: Colors.grey),
               ),
             ],
           );

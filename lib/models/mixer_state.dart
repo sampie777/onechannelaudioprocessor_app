@@ -428,6 +428,7 @@ class EqState extends MixerModule {
 class MixerState {
   double peakOverPeriod = 0.0;
   double avgPeakOverPeriod = 0.0;
+  int? stateVersion;
 
   // 1. Declare the modules
   late final RoutingState routing;
@@ -477,7 +478,6 @@ class MixerState {
   List<int> nau88Registers = List.filled(128, 0);
 
   double get peakDbfs => rawToDbfs(peakOverPeriod);
-
   double get avgPeakDbfs => rawToDbfs(avgPeakOverPeriod);
 
   // Automatically parses all standard incoming JSON (Meters + UI State)
@@ -488,6 +488,9 @@ class MixerState {
     }
     if (json.containsKey('avg_peak_over_period')) {
       avgPeakOverPeriod = (json['avg_peak_over_period'] as num).toDouble();
+    }
+    if (json.containsKey('state_version')) {
+      stateVersion = (json['state_version'] as num).toInt();
     }
 
     if (json.containsKey('nau88_reg')) {
