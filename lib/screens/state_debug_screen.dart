@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/mixer_state.dart';
 import '../services/esp32_connection_service.dart';
+import '../widgets/vu_meter/horizontal_audio_meter.dart';
 import 'nau88_register_edit_screen.dart';
 
 class StateDebugScreen extends StatelessWidget {
@@ -261,9 +262,27 @@ class StateDebugScreen extends StatelessWidget {
             }
           }
 
-          return ListView(
-            padding: const EdgeInsets.only(bottom: 32.0),
-            children: listItems,
+          return Column(
+            children: [
+              // Fixed Top Audio Meter
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 8.0),
+                child: HorizontalAudioMeterWidget(
+                  peak: state.peakOverPeriod,
+                  showTicks: true,
+                  label: 'Audio Peak',
+                ),
+              ),
+              Divider(height: 1, color: Colors.grey.shade800),
+
+              // Scrollable Controls
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.only(bottom: 32.0),
+                  children: listItems,
+                ),
+              ),
+            ],
           );
         },
       ),
