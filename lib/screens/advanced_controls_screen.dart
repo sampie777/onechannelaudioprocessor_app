@@ -16,6 +16,7 @@ class AdvancedControlsScreen extends StatefulWidget {
 
 class _AdvancedControlsScreenState extends State<AdvancedControlsScreen> {
   bool? wasLineMono;
+  bool? wasOutputBalanced;
 
   @override
   Widget build(BuildContext context) {
@@ -33,12 +34,21 @@ class _AdvancedControlsScreenState extends State<AdvancedControlsScreen> {
           final String inputMode = isLineStereo ? 'stereo' : 'mono';
 
           final bool isOutputMono = state.mixer.mono.value;
-          final String outputMode = isOutputMono ? 'mono' : 'stereo';
+          final String outputChannelMode = isOutputMono ? 'mono' : 'stereo';
+
+          final bool isOutputBalanced = state.speaker.balanced.value;
+          final String outputBalanceMode = (isOutputMono && isOutputBalanced)
+              ? 'balanced'
+              : 'unbalanced';
 
           final bool isGroundLifted = state.device.groundLiftEnabled.value;
 
           if (!isXlr && wasLineMono == null) {
             wasLineMono = state.routing.lineMonoToPga.value;
+          }
+
+          if (isOutputMono && wasOutputBalanced == null) {
+            wasOutputBalanced = isOutputBalanced;
           }
 
           return ListView(
@@ -54,7 +64,7 @@ class _AdvancedControlsScreenState extends State<AdvancedControlsScreen> {
               ),
               const SizedBox(height: 16),
 
-              const Text('Source Selection'),
+              const Text('Source'),
               const SizedBox(height: 8),
               SegmentedButton<String>(
                 style: SegmentedButton.styleFrom(
@@ -78,10 +88,10 @@ class _AdvancedControlsScreenState extends State<AdvancedControlsScreen> {
                             ),
                           ),
                           const SizedBox(height: 6),
-                          Row(
+                          const Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Text(
+                              Text(
                                 'XLR',
                                 style: TextStyle(fontWeight: FontWeight.bold),
                               ),
@@ -109,10 +119,10 @@ class _AdvancedControlsScreenState extends State<AdvancedControlsScreen> {
                             ),
                           ),
                           const SizedBox(height: 6),
-                          Row(
+                          const Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Text(
+                              Text(
                                 '1/4" Jack',
                                 style: TextStyle(fontWeight: FontWeight.bold),
                               ),
@@ -152,13 +162,13 @@ class _AdvancedControlsScreenState extends State<AdvancedControlsScreen> {
               ),
               const SizedBox(height: 24),
 
-              const Text('Input Mode'),
+              const Text('Mode'),
               const SizedBox(height: 8),
               SegmentedButton<String>(
                 segments: [
                   ButtonSegment(
                     value: 'stereo',
-                    label: Text(
+                    label: const Text(
                       'Stereo / Unbalanced',
                       textAlign: TextAlign.center,
                     ),
@@ -166,7 +176,7 @@ class _AdvancedControlsScreenState extends State<AdvancedControlsScreen> {
                         ? null
                         : 'Stereo is only available for the 1/4" TRS Jack input. Although it is possible to send a stereo signal over a single XLR cable, it is in the same category as walking outside on your socks. Therefore, by not supporting it, we encourage good behaviour.',
                   ),
-                  ButtonSegment(
+                  const ButtonSegment(
                     value: 'mono',
                     label: Text('Mono / Balanced', textAlign: TextAlign.center),
                   ),
@@ -219,36 +229,70 @@ class _AdvancedControlsScreenState extends State<AdvancedControlsScreen> {
               ),
               const SizedBox(height: 16),
 
-              const Text('Output Mode'),
+              const Text('Mode'),
               const SizedBox(height: 8),
               SegmentedButton<String>(
                 segments: const [
                   ButtonSegment(
                     value: 'stereo',
-                    label: Text(
-                      'Stereo / Unbalanced',
-                      textAlign: TextAlign.center,
-                    ),
+                    label: Text('Stereo', textAlign: TextAlign.center),
                   ),
                   ButtonSegment(
                     value: 'mono',
-                    label: Text('Mono / Balanced', textAlign: TextAlign.center),
+                    label: Text('Mono', textAlign: TextAlign.center),
                   ),
                 ],
-                selected: {outputMode},
+                selected: {outputChannelMode},
                 onSelectionChanged: (set) {
                   final String newMode = set.first;
                   if (newMode == 'mono') {
+                    // Restore previous balancing preference or default to balanced
+                    final bool restoreBalanced = wasOutputBalanced ?? true;
                     widget.service.sendCommands({
                       state.mixer.mono.command: 't',
-                      state.speaker.balanced.command: 't',
+                      state.speaker.balanced.command: restoreBalanced ? 't' : 'f',
+                      state.auxout.balanced.command: restoreBalanced ? 't' : 'f',
                     });
+                    wasOutputBalanced = restoreBalanced;
                   } else {
+                    // Stereo is strictly unbalanced
                     widget.service.sendCommands({
                       state.mixer.mono.command: 'f',
                       state.speaker.balanced.command: 'f',
+                      state.auxout.balanced.command: 'f',
                     });
                   }
+                },
+              ),
+
+              const SizedBox(height: 24),
+              const Text('Balancing'),
+              const SizedBox(height: 8),
+              SegmentedButton<String>(
+                segments: [
+                  const ButtonSegment(
+                    value: 'unbalanced',
+                    label: Text('Unbalanced', textAlign: TextAlign.center),
+                  ),
+                  ButtonSegment(
+                    value: 'balanced',
+                    label: const Text('Balanced', textAlign: TextAlign.center),
+                    tooltip: !isOutputMono
+                        ? 'Balanced output requires mono mode.'
+                        : 'Recommended for the XLR output.',
+                  ),
+                ],
+                selected: {outputBalanceMode},
+                onSelectionChanged: !isOutputMono
+                    ? null
+                    : (set) {
+                  final String newBalance = set.first;
+                  final bool makeBalanced = newBalance == 'balanced';
+                  widget.service.sendCommands({
+                    state.speaker.balanced.command: makeBalanced ? 't' : 'f',
+                    state.auxout.balanced.command: makeBalanced ? 't' : 'f',
+                  });
+                  wasOutputBalanced = makeBalanced;
                 },
               ),
               const SizedBox(height: 24),
@@ -264,11 +308,9 @@ class _AdvancedControlsScreenState extends State<AdvancedControlsScreen> {
               const SizedBox(height: 24),
 
               IntrinsicHeight(
-                // 1. Added IntrinsicHeight here
                 child: Row(
                   spacing: 12.0,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
-                  // 2. Added stretch alignment
                   children: [
                     Container(
                       padding: const EdgeInsets.symmetric(
@@ -282,7 +324,6 @@ class _AdvancedControlsScreenState extends State<AdvancedControlsScreen> {
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
-                        // Centers the painter vertically
                         children: [
                           SizedBox(
                             width: 36,
@@ -324,13 +365,12 @@ class _AdvancedControlsScreenState extends State<AdvancedControlsScreen> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 mainAxisAlignment: MainAxisAlignment.center,
-                                // Centers text vertically
                                 children: [
                                   Text(
                                     isGroundLifted
                                         ? 'Ground Lifted'
                                         : 'Ground Connected',
-                                    style: TextStyle(
+                                    style: const TextStyle(
                                       fontSize: 12,
                                       color: Colors.grey,
                                       fontWeight: FontWeight.bold,
@@ -346,6 +386,8 @@ class _AdvancedControlsScreenState extends State<AdvancedControlsScreen> {
                   ],
                 ),
               ),
+
+              const SizedBox(height: 24),
             ],
           );
         },
