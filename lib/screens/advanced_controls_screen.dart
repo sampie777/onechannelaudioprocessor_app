@@ -251,7 +251,6 @@ class _AdvancedControlsScreenState extends State<AdvancedControlsScreen> {
                     widget.service.sendCommands({
                       state.mixer.mono.command: 't',
                       state.speaker.balanced.command: restoreBalanced ? 't' : 'f',
-                      state.auxout.balanced.command: restoreBalanced ? 't' : 'f',
                     });
                     wasOutputBalanced = restoreBalanced;
                   } else {
@@ -259,7 +258,6 @@ class _AdvancedControlsScreenState extends State<AdvancedControlsScreen> {
                     widget.service.sendCommands({
                       state.mixer.mono.command: 'f',
                       state.speaker.balanced.command: 'f',
-                      state.auxout.balanced.command: 'f',
                     });
                   }
                 },
@@ -290,7 +288,6 @@ class _AdvancedControlsScreenState extends State<AdvancedControlsScreen> {
                   final bool makeBalanced = newBalance == 'balanced';
                   widget.service.sendCommands({
                     state.speaker.balanced.command: makeBalanced ? 't' : 'f',
-                    state.auxout.balanced.command: makeBalanced ? 't' : 'f',
                   });
                   wasOutputBalanced = makeBalanced;
                 },
