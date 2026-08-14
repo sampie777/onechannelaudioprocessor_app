@@ -122,6 +122,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 title: const Text('Status LEDs'),
                 subtitle: const Text(
                   'Enable or disable hardware indicator lights',
+                  style: TextStyle(color: Colors.grey),
                 ),
                 value: state.device.enableStatusLights.value,
                 activeColor: Colors.cyan,
@@ -131,10 +132,38 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   });
                 },
               ),
+              SwitchListTile(
+                title: const Text('Auto-switch Input Source'),
+                subtitle: const Text(
+                  'Automatically switch input when an XLR or Jack cable is plugged in',
+                  style: TextStyle(color: Colors.grey),
+                ),
+                value: state.device.autoSwitchInputMode.value,
+                activeColor: Colors.cyan,
+                onChanged: (val) {
+                  widget.service.sendCommands({
+                    state.device.autoSwitchInputMode.command: val ? 't' : 'f',
+                  });
+                },
+              ),
+              SwitchListTile(
+                title: const Text('Auto-switch Output Mode'),
+                subtitle: const Text(
+                  'Automatically adapt output channel & balancing configuration when an output cable is plugged in',
+                  style: TextStyle(color: Colors.grey),
+                ),
+                value: state.device.autoSwitchOutputMode.value,
+                activeColor: Colors.cyan,
+                onChanged: (val) {
+                  widget.service.sendCommands({
+                    state.device.autoSwitchOutputMode.command: val ? 't' : 'f',
+                  });
+                },
+              ),
               const SizedBox(height: 16),
 
               // Update Interval Section
-              Text('UI Update Interval: ${updateInterval}ms'),
+              Text('VU Meter Update Interval: ${updateInterval}ms'),
               Slider(
                 value: updateInterval.toDouble().clamp(50, 1000),
                 min: 50,
@@ -157,7 +186,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
               Text(
                 'Device state version: ${state.stateVersion ?? 'none'}',
-                style: TextStyle(color: Colors.grey),
+                style: const TextStyle(color: Colors.grey),
               ),
             ],
           );

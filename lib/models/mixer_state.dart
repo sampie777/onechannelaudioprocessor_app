@@ -255,6 +255,14 @@ class DeviceState extends MixerModule {
     false,
     command: 'device.output_jack_detected',
   );
+  final Lockable<bool> autoSwitchInputMode = Lockable(
+    true,
+    command: 'device.auto_switch_input_mode',
+  );
+  final Lockable<bool> autoSwitchOutputMode = Lockable(
+    true,
+    command: 'device.auto_switch_output_mode',
+  );
 
   @override
   Map<String, Lockable> get properties => {
@@ -265,6 +273,8 @@ class DeviceState extends MixerModule {
     'input_jack_detected': inputJackDetected,
     'output_xlr_detected': outputXlrDetected,
     'output_jack_detected': outputJackDetected,
+    'auto_switch_input_mode': autoSwitchInputMode,
+    'auto_switch_output_mode': autoSwitchOutputMode,
   };
 }
 
@@ -478,6 +488,7 @@ class MixerState {
   List<int> nau88Registers = List.filled(128, 0);
 
   double get peakDbfs => rawToDbfs(peakOverPeriod);
+
   double get avgPeakDbfs => rawToDbfs(avgPeakOverPeriod);
 
   // Automatically parses all standard incoming JSON (Meters + UI State)
