@@ -150,6 +150,8 @@ class Esp32ConnectionService extends ChangeNotifier {
       double avgPeak = (rawPeak * 0.7) + (_random.nextDouble() * 0.05);
       avgPeak = avgPeak.clamp(0.0001, rawPeak); // Avg shouldn't exceed raw peak
 
+      final eq = _currentMixerState.eq;
+
       // Generate randomized spectrum for demo testing
       List<double> mockSpectrum = List.filled(32, -80.0);
       for (int i = 0; i < 32; i++) {
@@ -168,6 +170,51 @@ class Esp32ConnectionService extends ChangeNotifier {
 
         // Convert the linear random value to decibels
         double targetDb = randomVal > 0.00001 ? (20 * log(randomVal) / ln10) : -80.0;
+
+        // ---------------------------------------------------------------------
+        // APPLY EQ SIMULATION TO THE SPECTRUM BIN
+        // ---------------------------------------------------------------------
+        // Calculate the center frequency of this specific bin
+        double f = 20.0 * pow(10, (i + 0.5) * 3.0 / 32.0);
+        double eqGain = 0.0;
+
+        // High Pass
+        if (eq.highPass.enabled.value) {
+          double fc = eq.highPass.frequency.value.toDouble();
+          int order = fc <= 4.0 ? 1 : 2;
+          eqGain += -10.0 * (log(1.0 + pow(fc / f, 2 * order)) / ln10);
+        }
+
+        // Low Shelf
+        if (!eq.lowShelf.isBypassed && eq.lowShelf.gain.value != 0) {
+          double fc = eq.lowShelf.frequency.value.toDouble();
+          double g = eq.lowShelf.gain.value.toDouble();
+          eqGain += g / (1.0 + pow(f / fc, 3.0));
+        }
+
+        // Parametric Bands (Low, Mid, High)
+        void applyParametric(ParametricEqBand band) {
+          if (!band.isBypassed && band.gain.value != 0) {
+            double fc = band.frequency.value.toDouble();
+            double g = band.gain.value.toDouble();
+            double q = band.band.value == 'wide' ? 0.75 : 1.8;
+            double logDist = log(f / fc);
+            eqGain += g * exp(-(logDist * logDist) * (q * 4.0));
+          }
+        }
+        applyParametric(eq.low);
+        applyParametric(eq.mid);
+        applyParametric(eq.high);
+
+        // High Shelf
+        if (!eq.highShelf.isBypassed && eq.highShelf.gain.value != 0) {
+          double fc = eq.highShelf.frequency.value.toDouble();
+          double g = eq.highShelf.gain.value.toDouble();
+          eqGain += g / (1.0 + pow(fc / f, 3.0));
+        }
+
+        // Apply EQ changes and clamp to prevent clipping or falling off the graph
+        targetDb += eqGain;
         targetDb = targetDb.clamp(-80.0, 0.0);
 
         // Apply EWMA smoothing so the random jumps look like organic EQ bands
