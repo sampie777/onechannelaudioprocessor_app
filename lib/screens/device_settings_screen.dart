@@ -199,9 +199,7 @@ class _DeviceSettingsScreenState extends State<DeviceSettingsScreen> {
                             width: double.infinity,
                             child: OutlinedButton.icon(
                               icon: const Icon(Icons.swap_horiz_rounded),
-                              label: const Text(
-                                'Connect to this IP',
-                              ),
+                              label: const Text('Connect to this IP'),
                               onPressed: () => _switchToIp(staIp),
                             ),
                           ),
@@ -346,6 +344,18 @@ class _DeviceSettingsScreenState extends State<DeviceSettingsScreen> {
                   const SizedBox(width: 6),
                   Text(
                     'Device state version: ${state.stateVersion ?? 'none'}',
+                    style: const TextStyle(color: Colors.grey),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+
+              Row(
+                children: [
+                  const Icon(Icons.copyright, size: 16, color: Colors.grey),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Samuel-Anton Jansen',
                     style: const TextStyle(color: Colors.grey),
                   ),
                 ],
