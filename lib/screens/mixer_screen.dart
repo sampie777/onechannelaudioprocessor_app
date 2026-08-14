@@ -6,12 +6,15 @@ import 'package:onechannelaudioprocessor/screens/state_debug_screen.dart';
 
 import '../models/mixer_state.dart';
 import '../services/esp32_connection_service.dart';
+import '../utils/math.dart';
 import '../widgets/audio_fader/audio_fader.dart';
 import '../widgets/ping_indicator_widget.dart';
 import '../widgets/vu_meter/audio_meter.dart';
 import 'advanced_controls_screen.dart';
 import 'connection_screen.dart';
 import 'eq/eq_screen.dart';
+
+enum MeterDisplayMode { input, both, output }
 
 class MixerScreen extends StatefulWidget {
   final Esp32ConnectionService service;
@@ -26,6 +29,9 @@ class _MixerScreenState extends State<MixerScreen> {
   bool _isManualDisconnect = false;
   bool _isReconnecting = false;
   int _reconnectAttempts = 0;
+
+  // Meter Mode State
+  MeterDisplayMode _meterMode = MeterDisplayMode.input;
 
   @override
   void initState() {
@@ -98,7 +104,6 @@ class _MixerScreenState extends State<MixerScreen> {
         await widget.service.reconnect();
 
         // If reconnect() didn't throw an error, it succeeded!
-        // The listener will catch the success and clear the UI.
         return;
       } catch (e) {
         // Attempt failed, loop continues
@@ -253,6 +258,17 @@ class _MixerScreenState extends State<MixerScreen> {
               builder: (context, snapshot) {
                 final state = snapshot.data ?? MixerState();
 
+                // METER EMULATION LOGIC
+                final double inputPeak = state.peakOverPeriod;
+                final bool isMuted = state.speaker.mute.value;
+                double outputPeak = 0.0;
+
+                if (!isMuted && inputPeak > 0.0001) {
+                  double inputDb = rawToDbfs(inputPeak);
+                  double outputDb = inputDb + state.dac.volume.value;
+                  outputPeak = dbfsToRaw(outputDb).clamp(0.0, 1.0);
+                }
+
                 return Padding(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 24.0,
@@ -261,10 +277,75 @@ class _MixerScreenState extends State<MixerScreen> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
-                      AudioMeterWidget(
-                        peak: state.peakOverPeriod,
-                        width: 20,
-                        label: "Max",
+                      Column(
+                        children: [
+                          InkWell(
+                            onTap: () {
+                              setState(() {
+                                int next =
+                                    (_meterMode.index + 1) %
+                                    MeterDisplayMode.values.length;
+                                _meterMode = MeterDisplayMode.values[next];
+                              });
+                            },
+                            borderRadius: BorderRadius.circular(6),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.grey.shade900,
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: Colors.grey.shade700),
+                              ),
+                              child: Text(
+                                _meterMode == MeterDisplayMode.input
+                                    ? 'IN'
+                                    : _meterMode == MeterDisplayMode.output
+                                    ? 'OUT'
+                                    : 'IN/OUT',
+                                style: const TextStyle(
+                                  fontFamily: 'monospace',
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Expanded(
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (_meterMode == MeterDisplayMode.input ||
+                                    _meterMode == MeterDisplayMode.both)
+                                  AudioMeterWidget(
+                                    peak: inputPeak,
+                                    width: 20,
+                                    showScale:
+                                        _meterMode == MeterDisplayMode.input,
+                                    label: _meterMode == MeterDisplayMode.both
+                                        ? "IN"
+                                        : "Max",
+                                  ),
+                                if (_meterMode == MeterDisplayMode.both)
+                                  const SizedBox(width: 12),
+                                if (_meterMode == MeterDisplayMode.output ||
+                                    _meterMode == MeterDisplayMode.both)
+                                  AudioMeterWidget(
+                                    peak: outputPeak,
+                                    width: 20,
+                                    label: _meterMode == MeterDisplayMode.both
+                                        ? "OUT"
+                                        : "Max",
+                                    border: isMuted ? Colors.redAccent : null,
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
 
                       Expanded(

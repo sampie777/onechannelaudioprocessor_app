@@ -7,12 +7,16 @@ class AudioMeterWidget extends StatefulWidget {
   final double peak; // 0.0 - 1.0
   final double width;
   final String? label;
+  final Color? border;
+  final bool? showScale;
 
   const AudioMeterWidget({
     super.key,
     required this.peak,
     required this.width,
     this.label,
+    this.border,
+    this.showScale,
   });
 
   @override
@@ -97,7 +101,9 @@ class _AudioMeterWidgetState extends State<AudioMeterWidget>
                 decoration: BoxDecoration(
                   color: Colors.black87,
                   borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: Colors.grey.shade800),
+                  border: Border.all(
+                    color: widget.border ?? Colors.grey.shade800,
+                  ),
                 ),
                 child: CustomPaint(
                   painter: _MeterPainter(
@@ -107,14 +113,17 @@ class _AudioMeterWidgetState extends State<AudioMeterWidget>
                   ),
                 ),
               ),
-              const SizedBox(width: 4),
-              Container(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                width: 35,
-                child: CustomPaint(
-                  painter: AudioMeterScalePainter(meterStops: _meterStops),
+
+              if (widget.showScale != false) ...[
+                const SizedBox(width: 4),
+                Container(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  width: 35,
+                  child: CustomPaint(
+                    painter: AudioMeterScalePainter(meterStops: _meterStops),
+                  ),
                 ),
-              ),
+              ],
             ],
           ),
         ),
