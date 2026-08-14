@@ -304,7 +304,7 @@ class _MixerScreenState extends State<MixerScreen> {
                                     ? 'IN'
                                     : _meterMode == MeterDisplayMode.output
                                     ? 'OUT'
-                                    : 'IN/OUT',
+                                    : 'IN | OUT',
                                 style: const TextStyle(
                                   fontFamily: 'monospace',
                                   fontSize: 12,
@@ -326,9 +326,7 @@ class _MixerScreenState extends State<MixerScreen> {
                                     width: 20,
                                     showScale:
                                         _meterMode == MeterDisplayMode.input,
-                                    label: _meterMode == MeterDisplayMode.both
-                                        ? "IN"
-                                        : "Max",
+                                    label: "Pre",
                                   ),
                                 if (_meterMode == MeterDisplayMode.both)
                                   const SizedBox(width: 12),
@@ -337,9 +335,7 @@ class _MixerScreenState extends State<MixerScreen> {
                                   AudioMeterWidget(
                                     peak: outputPeak,
                                     width: 20,
-                                    label: _meterMode == MeterDisplayMode.both
-                                        ? "OUT"
-                                        : "Max",
+                                    label: "Post",
                                     border: isMuted ? Colors.redAccent : null,
                                   ),
                               ],
