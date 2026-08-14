@@ -73,6 +73,7 @@ class _EqScreenState extends State<EqScreen> {
                 color: Theme.of(context).scaffoldBackgroundColor,
                 child: InteractiveEqGraph(
                   eq: eq,
+                  spectrum: state.spectrum,
                   activeBandKey: _activeBandKey,
                   service: widget.service,
                   onBandSelected: (bandKey) {

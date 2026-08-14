@@ -439,8 +439,9 @@ class MixerState {
   double peakOverPeriod = 0.0;
   double avgPeakOverPeriod = 0.0;
   int? stateVersion;
+  List<double> spectrum = List.filled(32, -80.0);
+  int fftWindowSize = 2048;
 
-  // 1. Declare the modules
   late final RoutingState routing;
   late final PgaState pga;
   late final AdcState adc;
@@ -454,7 +455,7 @@ class MixerState {
   late final DeviceState device;
   late final WifiState wifi;
 
-  // 2. Module Registry for automated looping
+  // Module Registry for automated looping
   final Map<String, MixerModule> _modules = {};
 
   MixerState() {
@@ -502,6 +503,15 @@ class MixerState {
     }
     if (json.containsKey('state_version')) {
       stateVersion = (json['state_version'] as num).toInt();
+    }
+    if (json.containsKey('spectrum')) {
+      final List<dynamic> spec = json['spectrum'];
+      for (int i = 0; i < spec.length && i < 32; i++) {
+        spectrum[i] = (spec[i] as num).toDouble();
+      }
+    }
+    if (json.containsKey('fft_window_size')) {
+      fftWindowSize = (json['fft_window_size'] as num).toInt();
     }
 
     if (json.containsKey('nau88_reg')) {

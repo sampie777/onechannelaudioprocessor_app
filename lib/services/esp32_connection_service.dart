@@ -38,8 +38,11 @@ class Esp32ConnectionService extends ChangeNotifier {
   final MixerState _currentMixerState = MixerState();
 
   bool get isConnected => _isConnected;
+
   ConnectionType? get activeType => _activeType;
+
   ConnectionType? get lastConnectionType => _lastConnectionType;
+
   String? get connectedIpAddress => _lastIpAddress;
 
   Future<void> connectWifi(String ipAddress) async {
@@ -54,9 +57,8 @@ class Esp32ConnectionService extends ChangeNotifier {
 
       final ws = await WebSocket.connect(wsUrl).timeout(
         const Duration(seconds: 5),
-        onTimeout: () {
-          throw TimeoutException('Connection timed out. Device unreachable.');
-        },
+        onTimeout: () =>
+            throw TimeoutException('Connection timed out. Device unreachable.'),
       );
 
       ws.pingInterval = const Duration(seconds: 3);
@@ -78,10 +80,13 @@ class Esp32ConnectionService extends ChangeNotifier {
       );
 
       udpService = UdpMeterService();
-      udpService!.onMeterData = (double peak, double avg) {
-        final json = {"peak_over_period": peak, "avg_peak_over_period": avg};
-        _parseIncomingData(jsonEncode(json));
-      };
+      udpService!.onMeterData =
+          (double peak, double avg, List<double> spectrum) {
+            _currentMixerState.peakOverPeriod = peak;
+            _currentMixerState.avgPeakOverPeriod = avg;
+            _currentMixerState.spectrum = spectrum;
+            _stateController.add(_currentMixerState);
+          };
       udpService!.startListening(5005);
 
       _activeType = ConnectionType.wifi;
@@ -131,17 +136,13 @@ class Esp32ConnectionService extends ChangeNotifier {
       if (baseSignal > 0.00001) {
         double inputGain = _currentMixerState.pga.gain.value;
         // Simulate the effect of mic vs line input on the signal level
-        double inputTypeGain = _currentMixerState.routing.micToPga.value
-            ? -30
-            : 0;
+        double inputTypeGain = _currentMixerState.routing.micToPga.value ? -30 : 0;
 
-        double baseSignalDbfs =
-            rawToDbfs(baseSignal) + inputGain + inputTypeGain;
+        double baseSignalDbfs = rawToDbfs(baseSignal) + inputGain + inputTypeGain;
         baseSignal = dbfsToRaw(baseSignalDbfs);
       }
 
-      double rawPeak =
-          baseSignal + pow(_random.nextDouble(), 2).toDouble() * 0.1;
+      double rawPeak = baseSignal + pow(_random.nextDouble(), 2).toDouble() * 0.1;
       // Clamp to 1.0 maximum to simulate hard analog/digital clipping at 0 dBFS
       rawPeak = rawPeak.clamp(0.0001, 1.0);
 
@@ -149,12 +150,36 @@ class Esp32ConnectionService extends ChangeNotifier {
       double avgPeak = (rawPeak * 0.7) + (_random.nextDouble() * 0.05);
       avgPeak = avgPeak.clamp(0.0001, rawPeak); // Avg shouldn't exceed raw peak
 
-      final mockJson = {
-        'peak_over_period': rawPeak,
-        'avg_peak_over_period': avgPeak,
-      };
+      // Generate randomized spectrum for demo testing
+      List<double> mockSpectrum = List.filled(32, -80.0);
+      for (int i = 0; i < 32; i++) {
+        // Create a shaping envelope to mimic typical music
+        double shapeMultiplier = 1.0;
+        if (i < 4) {
+          // Ramp up the lowest frequencies
+          shapeMultiplier = 0.4 + (0.15 * i);
+        } else if (i > 16) {
+          // Aggressive exponential roll-off for the high frequencies
+          shapeMultiplier = pow(0.8, i - 16).toDouble();
+        }
 
-      _parseIncomingData(jsonEncode(mockJson));
+        // Generate a random amplitude scaled by the overall average peak signal AND the shape
+        double randomVal = _random.nextDouble() * avgPeak * shapeMultiplier;
+
+        // Convert the linear random value to decibels
+        double targetDb = randomVal > 0.00001 ? (20 * log(randomVal) / ln10) : -80.0;
+        targetDb = targetDb.clamp(-80.0, 0.0);
+
+        // Apply EWMA smoothing so the random jumps look like organic EQ bands
+        double oldDb = _currentMixerState.spectrum[i];
+        mockSpectrum[i] = (oldDb * 0.7) + (targetDb * 0.3);
+      }
+
+      // Directly apply to state instead of routing through JSON mock
+      _currentMixerState.peakOverPeriod = rawPeak;
+      _currentMixerState.avgPeakOverPeriod = avgPeak;
+      _currentMixerState.spectrum = mockSpectrum;
+      _stateController.add(_currentMixerState);
     });
   }
 

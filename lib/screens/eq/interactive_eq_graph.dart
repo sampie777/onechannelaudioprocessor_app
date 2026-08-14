@@ -7,8 +7,8 @@ import '../../models/mixer_state.dart';
 import '../../services/esp32_connection_service.dart';
 
 // Shared Coordinate Constants
-const double _minFreq = 20.0;
-const double _maxFreq = 20000.0;
+const double _minFreq = 18.0;
+const double _maxFreq = 22000.0;
 const double _maxDb = 15.0;
 const double _minDb = -15.0;
 
@@ -43,6 +43,7 @@ class EqBandsConfig {
 // -----------------------------------------------------------------------------
 class InteractiveEqGraph extends StatefulWidget {
   final EqState eq;
+  final List<double> spectrum;
   final String? activeBandKey;
   final Esp32ConnectionService service;
   final ValueChanged<String> onBandSelected;
@@ -51,6 +52,7 @@ class InteractiveEqGraph extends StatefulWidget {
   const InteractiveEqGraph({
     super.key,
     required this.eq,
+    required this.spectrum,
     required this.activeBandKey,
     required this.service,
     required this.onBandSelected,
@@ -224,6 +226,7 @@ class _InteractiveEqGraphState extends State<InteractiveEqGraph> {
             size: size,
             painter: EqCurvePainter(
               eqState: widget.eq,
+              spectrum: widget.spectrum,
               activeBandKey: _effectiveBandKey,
               freqToX: _freqToX,
               dbToY: _dbToY,
@@ -240,6 +243,7 @@ class _InteractiveEqGraphState extends State<InteractiveEqGraph> {
 // -----------------------------------------------------------------------------
 class EqCurvePainter extends CustomPainter {
   final EqState eqState;
+  final List<double> spectrum;
   final String? activeBandKey;
 
   final double Function(double, double) freqToX;
@@ -247,6 +251,7 @@ class EqCurvePainter extends CustomPainter {
 
   EqCurvePainter({
     required this.eqState,
+    required this.spectrum,
     required this.activeBandKey,
     required this.freqToX,
     required this.dbToY,
@@ -262,6 +267,91 @@ class EqCurvePainter extends CustomPainter {
 
     _drawGridAndLabels(canvas, size);
 
+    // -------------------------------------------------------------------------
+    // FREQUENCY SPECTRUM BACKGROUND (SMOOTH LINE GRAPH)
+    // -------------------------------------------------------------------------
+    const double minSpectrumDb = -80.0;
+    const double maxSpectrumDb = 0.0;
+
+    final List<Offset> points = [];
+
+    // Calculate all the exact coordinate points for the 32 bands
+    for (int i = 0; i < 32; i++) {
+      final double db = spectrum[i];
+      final double clampedDb = db.clamp(minSpectrumDb, maxSpectrumDb);
+
+      final double fStart = 20.0 * pow(10, (i * 3.0) / 32.0);
+      final double fEnd = 20.0 * pow(10, ((i + 1) * 3.0) / 32.0);
+
+      final double xStart = freqToX(fStart, size.width);
+      final double xEnd = freqToX(fEnd, size.width);
+      final double xCenter = (xStart + xEnd) / 2.0;
+
+      final double normalizedDb = ((clampedDb - minSpectrumDb) / (maxSpectrumDb - minSpectrumDb));
+      final double y = size.height - (size.height * normalizedDb);
+
+      points.add(Offset(xCenter, y));
+    }
+
+    final Path spectrumPath = Path();
+
+    if (points.isNotEmpty) {
+      // Add ghost points to the edges to ensure the curve anchors smoothly to the sides
+      final List<Offset> extendedPoints = [
+        Offset(0, points.first.dy),
+        ...points,
+        Offset(size.width, points.last.dy)
+      ];
+
+      // Start the path at the far left edge
+      spectrumPath.moveTo(extendedPoints[0].dx, extendedPoints[0].dy);
+
+      // Loop through points and draw quadratic bezier curves connecting their midpoints
+      for (int i = 0; i < extendedPoints.length - 1; i++) {
+        final Offset current = extendedPoints[i];
+        final Offset next = extendedPoints[i + 1];
+
+        final double midX = (current.dx + next.dx) / 2.0;
+        final double midY = (current.dy + next.dy) / 2.0;
+
+        // Use the actual point as the anchor/control point, and draw to the midpoint
+        spectrumPath.quadraticBezierTo(current.dx, current.dy, midX, midY);
+      }
+
+      // Complete the line to the far right boundary
+      spectrumPath.lineTo(size.width, extendedPoints.last.dy);
+    }
+
+    // Draw the light grey, smooth spectrum line
+    final Paint spectrumLinePaint = Paint()
+      ..color = Colors.grey.shade300.withOpacity(0.6)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0
+      ..strokeJoin = StrokeJoin.round;
+
+    canvas.drawPath(spectrumPath, spectrumLinePaint);
+
+    // Draw a soft grey gradient fill underneath the spectrum line for depth
+    final Path spectrumFillPath = Path.from(spectrumPath)
+      ..lineTo(size.width, size.height)
+      ..lineTo(0, size.height)
+      ..close();
+
+    final Paint spectrumFillPaint = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          Colors.grey.shade300.withOpacity(0.15),
+          Colors.grey.shade300.withOpacity(0.0),
+        ],
+      ).createShader(Offset.zero & size);
+
+    canvas.drawPath(spectrumFillPath, spectrumFillPaint);
+
+    // -------------------------------------------------------------------------
+    // EQ CURVE GENERATION
+    // -------------------------------------------------------------------------
     final Path activePath = Path();
     final Path previewPath = Path();
     final int resolution = size.width.toInt();
@@ -301,6 +391,7 @@ class EqCurvePainter extends CustomPainter {
       }
     }
 
+    // Draw lines over the top of the spectrum
     final previewLinePaint = Paint()
       ..color = Colors.white38
       ..style = PaintingStyle.stroke
@@ -434,7 +525,7 @@ class EqCurvePainter extends CustomPainter {
     _drawText(canvas, '+12', Offset(4, dbToY(12, size.height) - 6), textStyle);
     _drawText(canvas, '-12', Offset(4, dbToY(-12, size.height) - 6), textStyle);
 
-    final List<int> gridFreqs = [50, 100, 500, 1000, 5000, 10000];
+    final List<int> gridFreqs = [20, 50, 100, 500, 1000, 5000, 10000, 20000];
     for (var f in gridFreqs) {
       final x = freqToX(f.toDouble(), size.width);
       canvas.drawLine(Offset(x, 0), Offset(x, size.height), gridPaint);
