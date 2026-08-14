@@ -1,18 +1,20 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../models/mixer_state.dart';
 import '../services/esp32_connection_service.dart';
 
-class SettingsScreen extends StatefulWidget {
+class DeviceSettingsScreen extends StatefulWidget {
   final Esp32ConnectionService service;
 
-  const SettingsScreen({super.key, required this.service});
+  const DeviceSettingsScreen({super.key, required this.service});
 
   @override
-  State<SettingsScreen> createState() => _SettingsScreenState();
+  State<DeviceSettingsScreen> createState() => _DeviceSettingsScreenState();
 }
 
-class _SettingsScreenState extends State<SettingsScreen> {
+class _DeviceSettingsScreenState extends State<DeviceSettingsScreen> {
   final TextEditingController _ssidController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   bool _obscurePassword = true;
@@ -42,7 +44,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('System Settings')),
+      appBar: AppBar(title: const Text('Device Settings')),
       body: StreamBuilder<MixerState>(
         stream: widget.service.stateStream,
         builder: (context, snapshot) {
@@ -77,7 +79,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 controller: _ssidController,
                 decoration: const InputDecoration(
                   labelText: 'Wi-Fi SSID',
-                  prefixIcon: Icon(Icons.wifi),
+                  prefixIcon: Icon(Icons.wifi_rounded),
                   border: OutlineInputBorder(),
                 ),
               ),
@@ -87,7 +89,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 obscureText: _obscurePassword,
                 decoration: InputDecoration(
                   labelText: 'Wi-Fi Password',
-                  prefixIcon: const Icon(Icons.lock),
+                  prefixIcon: const Icon(Icons.lock_outline),
                   border: const OutlineInputBorder(),
                   suffixIcon: IconButton(
                     icon: Icon(
@@ -103,7 +105,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               const SizedBox(height: 16),
               ElevatedButton.icon(
                 onPressed: _sendWifiCredentials,
-                icon: const Icon(Icons.save),
+                icon: const Icon(Icons.save_outlined),
                 label: const Text('Update Wi-Fi & Connect'),
               ),
               const Divider(height: 48),
@@ -119,13 +121,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               const SizedBox(height: 16),
               SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                secondary: Icon(
+                  state.device.enableStatusLights.value
+                      ? Icons.lightbulb
+                      : Icons.lightbulb_outline,
+                ),
                 title: const Text('Status LEDs'),
                 subtitle: const Text(
                   'Enable or disable hardware indicator lights',
                   style: TextStyle(color: Colors.grey),
                 ),
                 value: state.device.enableStatusLights.value,
-                activeColor: Colors.cyan,
+                activeThumbColor: Colors.cyan,
                 onChanged: (val) {
                   widget.service.sendCommands({
                     state.device.enableStatusLights.command: val ? 't' : 'f',
@@ -133,13 +141,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 },
               ),
               SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                secondary: Transform.rotate(
+                  angle: (180 + 45) * math.pi / 180,
+                  child: Icon(
+                    state.device.autoSwitchInputMode.value
+                        ? Icons.auto_fix_off
+                        : Icons.auto_fix_off_outlined,
+                  ),
+                ),
                 title: const Text('Auto-switch Input Source'),
                 subtitle: const Text(
                   'Automatically switch input when an XLR or Jack cable is plugged in',
                   style: TextStyle(color: Colors.grey),
                 ),
                 value: state.device.autoSwitchInputMode.value,
-                activeColor: Colors.cyan,
+                activeThumbColor: Colors.cyan,
                 onChanged: (val) {
                   widget.service.sendCommands({
                     state.device.autoSwitchInputMode.command: val ? 't' : 'f',
@@ -147,13 +164,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 },
               ),
               SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                secondary: Transform.rotate(
+                  angle: 45 * math.pi / 180,
+                  child: Icon(
+                    state.device.autoSwitchOutputMode.value
+                        ? Icons.auto_fix_off
+                        : Icons.auto_fix_off_outlined,
+                  ),
+                ),
                 title: const Text('Auto-switch Output Mode'),
                 subtitle: const Text(
                   'Automatically adapt output channel & balancing configuration when an output cable is plugged in',
                   style: TextStyle(color: Colors.grey),
                 ),
                 value: state.device.autoSwitchOutputMode.value,
-                activeColor: Colors.cyan,
+                activeThumbColor: Colors.cyan,
                 onChanged: (val) {
                   widget.service.sendCommands({
                     state.device.autoSwitchOutputMode.command: val ? 't' : 'f',
@@ -163,7 +189,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
               const SizedBox(height: 16),
 
               // Update Interval Section
-              Text('VU Meter Update Interval: ${updateInterval}ms'),
+              Row(
+                children: [
+                  const Icon(Icons.speed_rounded, size: 20, color: Colors.grey),
+                  const SizedBox(width: 8),
+                  Text('VU Meter Update Interval: ${updateInterval}ms'),
+                ],
+              ),
               Slider(
                 value: updateInterval.toDouble().clamp(50, 1000),
                 min: 50,
@@ -184,9 +216,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               const SizedBox(height: 24),
 
-              Text(
-                'Device state version: ${state.stateVersion ?? 'none'}',
-                style: const TextStyle(color: Colors.grey),
+              Row(
+                children: [
+                  const Icon(Icons.info_outline, size: 16, color: Colors.grey),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Device state version: ${state.stateVersion ?? 'none'}',
+                    style: const TextStyle(color: Colors.grey),
+                  ),
+                ],
               ),
             ],
           );

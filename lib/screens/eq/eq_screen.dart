@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../models/mixer_state.dart';
 import '../../services/esp32_connection_service.dart';
-import 'interactive_eq_graph.dart'; // Adjust import path if needed
+import '../../widgets/icons/eq_filter_icons.dart';
+import 'interactive_eq_graph.dart';
 
 class EqScreen extends StatefulWidget {
   final Esp32ConnectionService service;
@@ -17,11 +18,11 @@ class _EqScreenState extends State<EqScreen> {
   String? _activeBandKey;
 
   void _resetBand(
-    String band,
-    dynamic filter,
-    int defaultFreq, {
-    bool isParametric = false,
-  }) {
+      String band,
+      dynamic filter,
+      int defaultFreq, {
+        bool isParametric = false,
+      }) {
     final Map<String, String> commands = {};
 
     if (filter is ShelfFilter || filter is ParametricEqBand) {
@@ -97,6 +98,7 @@ class _EqScreenState extends State<EqScreen> {
                       'low_shelf',
                       eq.lowShelf,
                       EqBandsConfig.lowShelfFreqs,
+                      const EqFilterIcon.lowShelf(size: 24),
                     ),
                     const SizedBox(height: 16),
                     _buildParametricCard(
@@ -125,6 +127,7 @@ class _EqScreenState extends State<EqScreen> {
                       'high_shelf',
                       eq.highShelf,
                       EqBandsConfig.highShelfFreqs,
+                      const EqFilterIcon.highShelf(size: 24),
                     ),
                   ],
                 ),
@@ -150,12 +153,12 @@ class _EqScreenState extends State<EqScreen> {
           ),
           boxShadow: isActive
               ? [
-                  BoxShadow(
-                    color: Colors.cyanAccent.withOpacity(0.1),
-                    blurRadius: 8,
-                    spreadRadius: 1,
-                  ),
-                ]
+            BoxShadow(
+              color: Colors.cyanAccent.withOpacity(0.1),
+              blurRadius: 8,
+              spreadRadius: 1,
+            ),
+          ]
               : [],
         ),
         child: child,
@@ -175,6 +178,8 @@ class _EqScreenState extends State<EqScreen> {
             children: [
               Row(
                 children: [
+                  const EqFilterIcon.highPass(size: 24),
+                  const SizedBox(width: 12),
                   const Text(
                     'High Pass Filter',
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
@@ -216,11 +221,12 @@ class _EqScreenState extends State<EqScreen> {
   }
 
   Widget _buildShelfCard(
-    String title,
-    String bandKey,
-    ShelfFilter filter,
-    List<int> allowedFreqs,
-  ) {
+      String title,
+      String bandKey,
+      ShelfFilter filter,
+      List<int> allowedFreqs,
+      Widget icon,
+      ) {
     return _buildFocusableCard(
       bandKey: bandKey,
       child: Card(
@@ -232,6 +238,8 @@ class _EqScreenState extends State<EqScreen> {
             children: [
               Row(
                 children: [
+                  icon,
+                  const SizedBox(width: 12),
                   Text(
                     title,
                     style: const TextStyle(
@@ -297,11 +305,11 @@ class _EqScreenState extends State<EqScreen> {
   }
 
   Widget _buildParametricCard(
-    String title,
-    String bandKey,
-    ParametricEqBand filter,
-    List<int> allowedFreqs,
-  ) {
+      String title,
+      String bandKey,
+      ParametricEqBand filter,
+      List<int> allowedFreqs,
+      ) {
     return _buildFocusableCard(
       bandKey: bandKey,
       child: Card(
@@ -313,6 +321,8 @@ class _EqScreenState extends State<EqScreen> {
             children: [
               Row(
                 children: [
+                  const EqFilterIcon.bandPass(size: 24),
+                  const SizedBox(width: 12),
                   Text(
                     title,
                     style: const TextStyle(
@@ -407,8 +417,9 @@ class _EqScreenState extends State<EqScreen> {
     required Function(int) onChanged,
   }) {
     int index = allowedValues.indexOf(value);
-    if (index == -1)
+    if (index == -1) {
       index = EqBandsConfig.findClosestIndex(value, allowedValues);
+    }
 
     return Row(
       children: [

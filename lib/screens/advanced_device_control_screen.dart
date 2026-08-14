@@ -3,12 +3,12 @@ import 'package:flutter/material.dart';
 import '../models/mixer_state.dart';
 import '../services/esp32_connection_service.dart';
 import '../widgets/vu_meter/horizontal_audio_meter.dart';
-import 'nau88_register_edit_screen.dart';
+import 'register_control_screen.dart';
 
-class StateDebugScreen extends StatelessWidget {
+class AdvancedDeviceControl extends StatelessWidget {
   final Esp32ConnectionService service;
 
-  const StateDebugScreen({super.key, required this.service});
+  const AdvancedDeviceControl({super.key, required this.service});
 
   void _showEditDialog(BuildContext context, Lockable lockable, String label) {
     final controller = TextEditingController(text: lockable.value.toString());
@@ -65,16 +65,16 @@ class StateDebugScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Device Control'),
+        title: const Text('Advanced Control'),
         backgroundColor: Colors.blueGrey.shade900,
         actions: [
           IconButton(
             icon: const Icon(Icons.memory, color: Colors.cyanAccent),
-            tooltip: 'NAU8822 Registers',
+            tooltip: 'Registers Control',
             onPressed: () {
               Navigator.of(context).push(
                 MaterialPageRoute(
-                  builder: (_) => Nau88RegisterEditScreen(service: service),
+                  builder: (_) => RegisterControlScreen(service: service),
                 ),
               );
             },

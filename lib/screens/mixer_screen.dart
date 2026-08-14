@@ -1,8 +1,8 @@
 import 'dart:developer' as dev;
 
 import 'package:flutter/material.dart';
-import 'package:onechannelaudioprocessor/screens/settings_screen.dart';
-import 'package:onechannelaudioprocessor/screens/state_debug_screen.dart';
+import 'package:onechannelaudioprocessor/screens/advanced_device_control_screen.dart';
+import 'package:onechannelaudioprocessor/screens/device_settings_screen.dart';
 
 import '../models/mixer_state.dart';
 import '../services/esp32_connection_service.dart';
@@ -10,9 +10,9 @@ import '../utils/math.dart';
 import '../widgets/audio_fader/audio_fader.dart';
 import '../widgets/ping_indicator_widget.dart';
 import '../widgets/vu_meter/audio_meter.dart';
-import 'advanced_controls_screen.dart';
 import 'connection_screen.dart';
 import 'eq/eq_screen.dart';
+import 'input_output_control_screen.dart';
 
 enum MeterDisplayMode { input, both, output }
 
@@ -178,6 +178,13 @@ class _MixerScreenState extends State<MixerScreen> {
 
   @override
   Widget build(BuildContext context) {
+    String screenTitle = "MiniMix";
+    if (widget.service.activeType == ConnectionType.wifi &&
+        widget.service.connectedIpAddress != null &&
+        widget.service.connectedIpAddress!.isNotEmpty) {
+      screenTitle = "${widget.service.connectedIpAddress}";
+    }
+
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
@@ -186,7 +193,7 @@ class _MixerScreenState extends State<MixerScreen> {
       },
       child: Scaffold(
         appBar: AppBar(
-          title: Text(widget.service.connectedIpAddress ?? 'MiniMixer'),
+          title: Text(screenTitle),
           actions: [
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8.0),
@@ -201,29 +208,30 @@ class _MixerScreenState extends State<MixerScreen> {
             ),
             IconButton(
               icon: const Icon(Icons.bug_report, color: Colors.amber),
-              tooltip: 'Device Control',
-              onPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => StateDebugScreen(service: widget.service),
-                  ),
-                );
-              },
-            ),
-            IconButton(
-              icon: const Icon(Icons.settings_input_composite),
-              tooltip: 'Advanced Controls',
+              tooltip: 'Advanced Control',
               onPressed: () {
                 Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (_) =>
-                        AdvancedControlsScreen(service: widget.service),
+                        AdvancedDeviceControl(service: widget.service),
                   ),
                 );
               },
             ),
             IconButton(
-              icon: const Icon(Icons.tune),
+              icon: const Icon(Icons.settings_input_svideo),
+              tooltip: 'Input / Output Control',
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) =>
+                        InputOutputControlScreen(service: widget.service),
+                  ),
+                );
+              },
+            ),
+            IconButton(
+              icon: const Icon(Icons.stacked_bar_chart_rounded),
               tooltip: 'Equalizer',
               onPressed: () {
                 Navigator.of(context).push(
@@ -235,11 +243,12 @@ class _MixerScreenState extends State<MixerScreen> {
             ),
             IconButton(
               icon: const Icon(Icons.settings),
-              tooltip: 'Settings',
+              tooltip: 'Device Settings',
               onPressed: () {
                 Navigator.of(context).push(
                   MaterialPageRoute(
-                    builder: (_) => SettingsScreen(service: widget.service),
+                    builder: (_) =>
+                        DeviceSettingsScreen(service: widget.service),
                   ),
                 );
               },

@@ -428,7 +428,7 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
                         title: 'Direct (SoftAP)',
                         subtitle:
                             'Connect directly to Mixer internal Wi-Fi Network',
-                        icon: Icons.wifi_tethering,
+                        icon: Icons.signal_wifi_off,
                       ),
                       AnimatedCrossFade(
                         firstChild: const SizedBox(width: double.infinity),

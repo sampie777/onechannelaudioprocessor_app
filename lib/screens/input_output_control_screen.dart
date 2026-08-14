@@ -1,27 +1,34 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
+import 'package:onechannelaudioprocessor/widgets/icons/jack_icon.dart';
+import 'package:onechannelaudioprocessor/widgets/icons/xlr_icon.dart';
 
 import '../models/mixer_state.dart';
 import '../services/esp32_connection_service.dart';
+import '../widgets/icons/balancing_icons.dart';
+import '../widgets/icons/ground_icon.dart';
 import '../widgets/volume_slider.dart';
 import '../widgets/vu_meter/horizontal_audio_meter.dart';
 
-class AdvancedControlsScreen extends StatefulWidget {
+class InputOutputControlScreen extends StatefulWidget {
   final Esp32ConnectionService service;
 
-  const AdvancedControlsScreen({super.key, required this.service});
+  const InputOutputControlScreen({super.key, required this.service});
 
   @override
-  State<AdvancedControlsScreen> createState() => _AdvancedControlsScreenState();
+  State<InputOutputControlScreen> createState() =>
+      _InputOutputControlScreenState();
 }
 
-class _AdvancedControlsScreenState extends State<AdvancedControlsScreen> {
+class _InputOutputControlScreenState extends State<InputOutputControlScreen> {
   bool? wasLineMono;
   bool? wasOutputBalanced;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Advanced Controls')),
+      appBar: AppBar(title: const Text('Input / Output Control')),
       body: StreamBuilder<MixerState>(
         stream: widget.service.stateStream,
         builder: (context, snapshot) {
@@ -80,22 +87,17 @@ class _AdvancedControlsScreenState extends State<AdvancedControlsScreen> {
                         children: [
                           SizedBox(
                             width: 36,
-                            height: 36,
-                            child: CustomPaint(
-                              painter: XlrConnectorPainter(
-                                isDetected: state.device.inputXlrDetected.value,
-                              ),
+                            child: XlrIcon(
+                              size: 36,
+                              color: state.device.inputXlrDetected.value
+                                  ? Colors.greenAccent
+                                  : null,
                             ),
                           ),
                           const SizedBox(height: 6),
-                          const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                'XLR',
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                            ],
+                          Text(
+                            'XLR',
+                            style: TextStyle(fontWeight: FontWeight.bold),
                           ),
                         ],
                       ),
@@ -110,23 +112,17 @@ class _AdvancedControlsScreenState extends State<AdvancedControlsScreen> {
                         children: [
                           SizedBox(
                             width: 40,
-                            height: 28,
-                            child: CustomPaint(
-                              painter: JackConnectorPainter(
-                                isDetected:
-                                    state.device.inputJackDetected.value,
-                              ),
+                            child: JackIcon(
+                              size: 28,
+                              color: state.device.inputJackDetected.value
+                                  ? Colors.greenAccent
+                                  : null,
                             ),
                           ),
                           const SizedBox(height: 6),
-                          const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                '1/4" Jack',
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                            ],
+                          Text(
+                            '1/4" Jack',
+                            style: TextStyle(fontWeight: FontWeight.bold),
                           ),
                         ],
                       ),
@@ -162,23 +158,74 @@ class _AdvancedControlsScreenState extends State<AdvancedControlsScreen> {
               ),
               const SizedBox(height: 24),
 
-              const Text('Mode'),
-              const SizedBox(height: 8),
               SegmentedButton<String>(
                 segments: [
                   ButtonSegment(
                     value: 'stereo',
-                    label: const Text(
-                      'Stereo / Unbalanced',
-                      textAlign: TextAlign.center,
-                    ),
                     tooltip: !isXlr
                         ? null
                         : 'Stereo is only available for the 1/4" TRS Jack input. Although it is possible to send a stereo signal over a single XLR cable, it is in the same category as walking outside on your socks. Therefore, by not supporting it, we encourage good behaviour.',
+                    label: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 6.0),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Transform.rotate(
+                                angle: 180 * math.pi / 180,
+                                child: Icon(
+                                  Icons.volume_up,
+                                  size: 26,
+                                  color: inputMode == 'stereo'
+                                      ? Colors.cyanAccent
+                                      : null,
+                                ),
+                              ),
+                              Icon(
+                                Icons.volume_up,
+                                size: 26,
+                                color: inputMode == 'stereo'
+                                    ? Colors.cyanAccent
+                                    : null,
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            'Stereo / Unbalanced',
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                  const ButtonSegment(
+                  ButtonSegment(
                     value: 'mono',
-                    label: Text('Mono / Balanced', textAlign: TextAlign.center),
+                    label: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 6.0),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.volume_up,
+                                size: 26,
+                                color:
+                                    inputMode == 'mono' && inputSource == 'jack'
+                                    ? Colors.cyanAccent
+                                    : null,
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Text('Mono / Balanced', textAlign: TextAlign.center),
+                        ],
+                      ),
+                    ),
                   ),
                 ],
                 selected: {inputMode},
@@ -215,6 +262,7 @@ class _AdvancedControlsScreenState extends State<AdvancedControlsScreen> {
               const SizedBox(height: 20),
               HorizontalAudioMeterWidget(
                 peak: state.peakOverPeriod,
+                showTicks: true,
               ),
 
               const Divider(height: 64),
@@ -232,14 +280,66 @@ class _AdvancedControlsScreenState extends State<AdvancedControlsScreen> {
               const Text('Mode'),
               const SizedBox(height: 8),
               SegmentedButton<String>(
-                segments: const [
+                segments: [
                   ButtonSegment(
                     value: 'stereo',
-                    label: Text('Stereo', textAlign: TextAlign.center),
+                    label: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 6.0),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Transform.rotate(
+                                angle: 180 * math.pi / 180,
+                                child: Icon(
+                                  Icons.volume_up,
+                                  size: 26,
+                                  color: outputChannelMode == 'stereo'
+                                      ? Colors.cyanAccent
+                                      : null,
+                                ),
+                              ),
+                              Icon(
+                                Icons.volume_up,
+                                size: 26,
+                                color: outputChannelMode == 'stereo'
+                                    ? Colors.cyanAccent
+                                    : null,
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Text('Stereo', textAlign: TextAlign.center),
+                        ],
+                      ),
+                    ),
                   ),
                   ButtonSegment(
                     value: 'mono',
-                    label: Text('Mono', textAlign: TextAlign.center),
+                    label: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 6.0),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.volume_up,
+                                size: 26,
+                                color: outputChannelMode == 'mono'
+                                    ? Colors.cyanAccent
+                                    : null,
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Text('Mono', textAlign: TextAlign.center),
+                        ],
+                      ),
+                    ),
                   ),
                 ],
                 selected: {outputChannelMode},
@@ -250,7 +350,9 @@ class _AdvancedControlsScreenState extends State<AdvancedControlsScreen> {
                     final bool restoreBalanced = wasOutputBalanced ?? true;
                     widget.service.sendCommands({
                       state.mixer.mono.command: 't',
-                      state.speaker.balanced.command: restoreBalanced ? 't' : 'f',
+                      state.speaker.balanced.command: restoreBalanced
+                          ? 't'
+                          : 'f',
                     });
                     wasOutputBalanced = restoreBalanced;
                   } else {
@@ -262,35 +364,68 @@ class _AdvancedControlsScreenState extends State<AdvancedControlsScreen> {
                   }
                 },
               ),
-
               const SizedBox(height: 24),
-              const Text('Balancing'),
-              const SizedBox(height: 8),
+
               SegmentedButton<String>(
                 segments: [
-                  const ButtonSegment(
+                  ButtonSegment(
                     value: 'unbalanced',
-                    label: Text('Unbalanced', textAlign: TextAlign.center),
+                    label: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 6.0),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          UnbalancedSignalIcon(
+                            size: 24,
+                            color:
+                                outputBalanceMode == 'unbalanced' &&
+                                    outputChannelMode == 'mono'
+                                ? Colors.cyanAccent
+                                : null,
+                          ),
+                          const SizedBox(height: 6),
+                          Text('Unbalanced', textAlign: TextAlign.center),
+                        ],
+                      ),
+                    ),
                   ),
+
                   ButtonSegment(
                     value: 'balanced',
-                    label: const Text('Balanced', textAlign: TextAlign.center),
                     tooltip: !isOutputMono
                         ? 'Balanced output requires mono mode.'
                         : 'Recommended for the XLR output.',
+                    label: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 6.0),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          BalancedSignalIcon(
+                            size: 24,
+                            primaryColor: outputBalanceMode == 'balanced'
+                                ? Colors.cyanAccent
+                                : null,
+                          ),
+                          const SizedBox(height: 6),
+                          Text('Balanced', textAlign: TextAlign.center),
+                        ],
+                      ),
+                    ),
                   ),
                 ],
                 selected: {outputBalanceMode},
                 onSelectionChanged: !isOutputMono
                     ? null
                     : (set) {
-                  final String newBalance = set.first;
-                  final bool makeBalanced = newBalance == 'balanced';
-                  widget.service.sendCommands({
-                    state.speaker.balanced.command: makeBalanced ? 't' : 'f',
-                  });
-                  wasOutputBalanced = makeBalanced;
-                },
+                        final String newBalance = set.first;
+                        final bool makeBalanced = newBalance == 'balanced';
+                        widget.service.sendCommands({
+                          state.speaker.balanced.command: makeBalanced
+                              ? 't'
+                              : 'f',
+                        });
+                        wasOutputBalanced = makeBalanced;
+                      },
               ),
               const SizedBox(height: 24),
 
@@ -319,20 +454,11 @@ class _AdvancedControlsScreenState extends State<AdvancedControlsScreen> {
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(color: Colors.grey.withAlpha(50)),
                       ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          SizedBox(
-                            width: 36,
-                            height: 36,
-                            child: CustomPaint(
-                              painter: XlrConnectorPainter(
-                                isDetected:
-                                    state.device.outputXlrDetected.value,
-                              ),
-                            ),
-                          ),
-                        ],
+                      child: XlrIcon(
+                        size: 36,
+                        color: state.device.outputXlrDetected.value
+                            ? Colors.greenAccent
+                            : null,
                       ),
                     ),
 
@@ -346,20 +472,11 @@ class _AdvancedControlsScreenState extends State<AdvancedControlsScreen> {
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(color: Colors.grey.withAlpha(50)),
                       ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          SizedBox(
-                            width: 36,
-                            height: 36,
-                            child: CustomPaint(
-                              painter: JackConnectorPainter(
-                                isDetected:
-                                    state.device.outputJackDetected.value,
-                              ),
-                            ),
-                          ),
-                        ],
+                      child: JackIcon(
+                        size: 36,
+                        color: state.device.outputJackDetected.value
+                            ? Colors.greenAccent
+                            : null,
                       ),
                     ),
 
@@ -376,15 +493,7 @@ class _AdvancedControlsScreenState extends State<AdvancedControlsScreen> {
                         ),
                         child: Row(
                           children: [
-                            SizedBox(
-                              width: 28,
-                              height: 28,
-                              child: CustomPaint(
-                                painter: GroundSymbolPainter(
-                                  isLifted: isGroundLifted,
-                                ),
-                              ),
-                            ),
+                            GroundIcon(size: 28, isLifted: isGroundLifted),
                             const SizedBox(width: 16),
                             Expanded(
                               child: Column(
@@ -419,158 +528,4 @@ class _AdvancedControlsScreenState extends State<AdvancedControlsScreen> {
       ),
     );
   }
-}
-
-// -----------------------------------------------------------------------------
-// LARGE FRONT-VIEW XLR CONNECTOR PAINTER
-// -----------------------------------------------------------------------------
-class XlrConnectorPainter extends CustomPainter {
-  final bool isDetected;
-
-  XlrConnectorPainter({required this.isDetected});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final double radius = size.width / 2;
-    final Offset center = Offset(radius, size.height / 2);
-    final Color mainColor = isDetected ? Colors.greenAccent : Colors.white70;
-
-    // Outer Circle Shell
-    final Paint outerPaint = Paint()
-      ..color = mainColor
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.5;
-    canvas.drawCircle(center, radius - 2, outerPaint);
-
-    // Inner Notch (Top of XLR socket)
-    final Paint notchPaint = Paint()
-      ..color = mainColor
-      ..style = PaintingStyle.fill;
-    final Path notchPath = Path()
-      ..addRect(Rect.fromLTWH(center.dx - 2.5, center.dy - radius + 2, 5, 4));
-    canvas.drawPath(notchPath, notchPaint);
-
-    // 3 Female Socket Pins
-    final Paint pinPaint = Paint()
-      ..color = mainColor
-      ..style = PaintingStyle.fill;
-
-    final List<Offset> pinPositions = [
-      Offset(center.dx - (radius * 0.42), center.dy - (radius * 0.15)),
-      Offset(center.dx + (radius * 0.42), center.dy - (radius * 0.15)),
-      Offset(center.dx, center.dy + (radius * 0.45)),
-    ];
-
-    for (final pos in pinPositions) {
-      canvas.drawCircle(pos, 2.8, pinPaint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant XlrConnectorPainter oldDelegate) =>
-      oldDelegate.isDetected != isDetected;
-}
-
-// -----------------------------------------------------------------------------
-// LARGE SIDE-VIEW 1/4" JACK CONNECTOR PAINTER
-// -----------------------------------------------------------------------------
-class JackConnectorPainter extends CustomPainter {
-  final bool isDetected;
-
-  JackConnectorPainter({required this.isDetected});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final Color mainColor = isDetected ? Colors.greenAccent : Colors.white70;
-    final Paint strokePaint = Paint()
-      ..color = mainColor
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.2
-      ..strokeJoin = StrokeJoin.round;
-
-    final Paint fillPaint = Paint()
-      ..color = mainColor
-      ..style = PaintingStyle.fill;
-
-    final double midY = size.height / 2;
-
-    // 1. Heavy Base Handle / Sleeve
-    canvas.drawRect(Rect.fromLTWH(1, midY - 9, 10, 18), fillPaint);
-
-    // 2. Main Shaft
-    canvas.drawRect(Rect.fromLTWH(10, midY - 5.5, 22, 11), strokePaint);
-
-    // 3. TRS Insulator Ring Line
-    canvas.drawLine(
-      Offset(24, midY - 5.5),
-      Offset(24, midY + 5.5),
-      strokePaint,
-    );
-
-    // 4. Jack Tip (Notched Arrow Point)
-    final double offsetX = 32;
-    final Path tipPath = Path()
-      ..moveTo(offsetX, midY - 5.5)
-      ..lineTo(offsetX + 4, midY - 4.0)
-      ..lineTo(offsetX + 10, midY - 2.0)
-      ..lineTo(offsetX + 10, midY + 2.0)
-      ..lineTo(offsetX + 4, midY + 4.0)
-      ..lineTo(offsetX, midY + 5.5)
-      ..close();
-
-    canvas.drawPath(tipPath, strokePaint);
-  }
-
-  @override
-  bool shouldRepaint(covariant JackConnectorPainter oldDelegate) =>
-      oldDelegate.isDetected != isDetected;
-}
-
-class GroundSymbolPainter extends CustomPainter {
-  final bool isLifted;
-
-  GroundSymbolPainter({required this.isLifted});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final Color strokeColor = isLifted ? Colors.amber : Colors.white70;
-    final Paint linePaint = Paint()
-      ..color = strokeColor
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.0
-      ..strokeCap = StrokeCap.round;
-
-    final double midX = size.width / 2;
-
-    if (isLifted) {
-      // 1. Lifted: Draw top wire down to gap
-      canvas.drawLine(Offset(midX, 0), Offset(midX, 6), linePaint);
-
-      // 2. Break / Disconnect gap (red/amber 'X' cut indicator)
-      final Paint cutPaint = Paint()
-        ..color = Colors.amber
-        ..strokeWidth = 1.8
-        ..strokeCap = StrokeCap.round;
-      canvas.drawLine(Offset(midX - 3, 7), Offset(midX + 3, 11), cutPaint);
-      canvas.drawLine(Offset(midX + 3, 7), Offset(midX - 3, 11), cutPaint);
-
-      // 3. Lower stem starting below the break gap
-      canvas.drawLine(Offset(midX, 12), Offset(midX, 16), linePaint);
-    } else {
-      // Intact continuous wire from top stem to earth lines
-      canvas.drawLine(Offset(midX, 0), Offset(midX, 16), linePaint);
-    }
-
-    // 4. Standard 3-line Earth Ground Schematic pyramid (Bottom)
-    // Top line (widest)
-    canvas.drawLine(Offset(midX - 10, 16), Offset(midX + 10, 16), linePaint);
-    // Middle line
-    canvas.drawLine(Offset(midX - 6, 20), Offset(midX + 6, 20), linePaint);
-    // Bottom line (narrowest)
-    canvas.drawLine(Offset(midX - 2, 24), Offset(midX + 2, 24), linePaint);
-  }
-
-  @override
-  bool shouldRepaint(covariant GroundSymbolPainter oldDelegate) =>
-      oldDelegate.isLifted != isLifted;
 }

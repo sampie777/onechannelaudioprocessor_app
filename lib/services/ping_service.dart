@@ -10,6 +10,11 @@ class PingService extends ChangeNotifier {
   /// Current round-trip time in milliseconds
   int get pingMs => _pingMs;
 
+  set pingMs(int value) {
+    _pingMs = value;
+    notifyListeners();
+  }
+
   /// Starts the ping loop sending `ping=<timestamp>` every 2 seconds
   void start(WebSocketChannel channel) {
     stop();
@@ -25,25 +30,25 @@ class PingService extends ChangeNotifier {
 
   /// Parses incoming JSON payloads for `pong` responses
   void handleIncomingJson(Map<String, dynamic> json) {
-    if (json.containsKey('pong')) {
-      final dynamic ts = json['pong'];
-      final int? sentTimestamp = ts is int ? ts : int.tryParse(ts.toString());
+    if (!json.containsKey('pong')) return;
 
-      if (sentTimestamp != null) {
-        final int now = DateTime.now().millisecondsSinceEpoch;
-        _pingMs = (now - sentTimestamp).clamp(0, 9999);
-        notifyListeners();
-      }
-    }
+    final dynamic ts = json['pong'];
+    final int? sentTimestamp = ts is int ? ts : int.tryParse(ts.toString());
+
+    if (sentTimestamp == null) return;
+
+    final int now = DateTime.now().millisecondsSinceEpoch;
+    _pingMs = (now - sentTimestamp).clamp(0, 9999);
+    notifyListeners();
   }
 
   /// Stops the ping loop and resets latency
   void stop() {
     _pingTimer?.cancel();
     _pingTimer = null;
-    if (_pingMs != 0) {
-      _pingMs = 0;
-      notifyListeners();
-    }
+    if (_pingMs == 0) return;
+
+    _pingMs = 0;
+    notifyListeners();
   }
 }

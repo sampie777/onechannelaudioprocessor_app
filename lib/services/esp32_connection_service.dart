@@ -91,6 +91,7 @@ class Esp32ConnectionService extends ChangeNotifier {
 
     _demoSimulator = DemoSimulator(
       state: _currentMixerState,
+      pingService: pingService,
       onUpdate: (updatedState) {
         if (!_isConnected || _activeType != ConnectionType.demo) return;
         _stateController.add(updatedState);

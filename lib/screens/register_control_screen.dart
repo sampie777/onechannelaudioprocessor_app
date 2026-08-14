@@ -87,16 +87,16 @@ const List<Nau88RegisterDef> _nauRegisters = [
   Nau88RegisterDef(79, 'Output tie-off control', ['SHRTRHP', 'SHRTLHP', 'SHRTAUX2', 'SHRTAUX1', 'SHRTRSPK', 'SHRTLSPK', 'SHRTBUFL', 'SHRTBUFH', 'MANOUTEN']),
 ];
 
-class Nau88RegisterEditScreen extends StatefulWidget {
+class RegisterControlScreen extends StatefulWidget {
   final Esp32ConnectionService service;
 
-  const Nau88RegisterEditScreen({super.key, required this.service});
+  const RegisterControlScreen({super.key, required this.service});
 
   @override
-  State<Nau88RegisterEditScreen> createState() => _Nau88RegisterEditScreenState();
+  State<RegisterControlScreen> createState() => _RegisterControlScreenState();
 }
 
-class _Nau88RegisterEditScreenState extends State<Nau88RegisterEditScreen> {
+class _RegisterControlScreenState extends State<RegisterControlScreen> {
   void _onBitChanged(int regAddr, int currentVal, int bitIndex, bool isChecked) {
     int newVal;
     if (isChecked) {
@@ -112,7 +112,7 @@ class _Nau88RegisterEditScreenState extends State<Nau88RegisterEditScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('NAU8822 Registers'),
+        title: const Text('Register Control'),
         backgroundColor: Colors.blueGrey.shade900,
       ),
       body: StreamBuilder<MixerState>(

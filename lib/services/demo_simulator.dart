@@ -1,39 +1,53 @@
 import 'dart:async';
 import 'dart:math';
 
+import 'package:onechannelaudioprocessor/services/ping_service.dart';
+
 import '../models/mixer_state.dart';
 import '../utils/math.dart';
 
 class DemoSimulator {
-  Timer? _timer;
+  Timer? _audioTimer;
+  Timer? _pingTimer;
   final Random _random = Random();
 
   final MixerState state;
   final void Function(MixerState updatedState) onUpdate;
+  final PingService pingService;
 
-  DemoSimulator({required this.state, required this.onUpdate});
+  DemoSimulator({
+    required this.state,
+    required this.onUpdate,
+    required this.pingService,
+  });
 
   void start() {
-    stop(); // Ensure any existing timer is killed
+    stop(); // Ensure any existing timers are killed
 
-    // Initial hardware states for demo
     state.device.inputJackDetected.value = true;
     state.device.outputXlrDetected.value = true;
     state.routing.lineStereoToPga.value = true;
     state.mixer.mono.value = true;
     state.speaker.balanced.value = true;
 
-    _timer = Timer.periodic(const Duration(milliseconds: 50), _onTick);
+    _audioTimer = Timer.periodic(const Duration(milliseconds: 50), _onAudioTick);
+    _pingTimer = Timer.periodic(const Duration(seconds: 2), _onPingTick);
   }
 
   void stop() {
-    _timer?.cancel();
-    _timer = null;
+    _audioTimer?.cancel();
+    _audioTimer = null;
+
+    _pingTimer?.cancel();
+    _pingTimer = null;
   }
 
-  void _onTick(Timer timer) {
-    generateDemoDataUpdate(timer);
+  void _onPingTick(Timer timer) {
+    pingService.pingMs = 11 + _random.nextInt(90) + (_random.nextDouble() < 0.2 ? _random.nextInt(60) : 0);
+  }
 
+  void _onAudioTick(Timer timer) {
+    generateDemoDataUpdate(timer);
     onUpdate(state);
   }
 
@@ -132,7 +146,6 @@ class DemoSimulator {
           eqGain += g * exp(-(logDist * logDist) * (q * 4.0));
         }
       }
-
       applyParametric(eq.low);
       applyParametric(eq.mid);
       applyParametric(eq.high);

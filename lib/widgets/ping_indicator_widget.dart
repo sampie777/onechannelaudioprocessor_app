@@ -13,10 +13,10 @@ class PingIndicatorWidget extends StatelessWidget {
   }
 
   IconData _getPingIcon() {
-    if (pingMs <= 0) return Icons.wifi_off;
-    if (pingMs < 50) return Icons.wifi;
-    if (pingMs < 120) return Icons.wifi_2_bar;
-    return Icons.wifi_1_bar;
+    if (pingMs <= 0) return Icons.signal_cellular_off;
+    if (pingMs < 50) return Icons.signal_cellular_alt;
+    if (pingMs < 120) return Icons.signal_cellular_alt_2_bar;
+    return Icons.signal_cellular_alt_1_bar;
   }
 
   @override
