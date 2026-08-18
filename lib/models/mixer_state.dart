@@ -134,12 +134,12 @@ class PgaState extends MixerModule {
 
 class AdcState extends MixerModule {
   final Lockable<double> volume = Lockable(0.0, command: 'adc.volume');
-  final Lockable<bool> i2sPcmMode = Lockable(true, command: 'adc.i2s_pcm_mode');
+  final Lockable<bool> pcmInsteadOfI2sMode = Lockable(true, command: 'adc.pcm_instead_of_i2s_mode');
 
   @override
   Map<String, Lockable> get properties => {
     'volume': volume,
-    'i2s_pcm_mode': i2sPcmMode,
+    'pcm_instead_of_i2s_mode': pcmInsteadOfI2sMode,
   };
 }
 
