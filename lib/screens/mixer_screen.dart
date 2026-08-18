@@ -8,6 +8,7 @@ import '../models/mixer_state.dart';
 import '../services/esp32_connection_service.dart';
 import '../utils/math.dart';
 import '../widgets/audio_fader/audio_fader.dart';
+import '../widgets/hardware_volume_listener_widget.dart';
 import '../widgets/ping_indicator_widget.dart';
 import '../widgets/vu_meter/audio_meter.dart';
 import 'connection_screen.dart';
@@ -260,7 +261,10 @@ class _MixerScreenState extends State<MixerScreen> {
             ),
           ],
         ),
-        body: Stack(
+        body: HardwareVolumeListenerWidget(
+          service: widget.service,
+          showVolumePopup: false,
+          child: Stack(
           children: [
             StreamBuilder<MixerState>(
               stream: widget.service.stateStream,
@@ -413,6 +417,7 @@ class _MixerScreenState extends State<MixerScreen> {
                 ),
               ),
           ],
+        ),
         ),
       ),
     );

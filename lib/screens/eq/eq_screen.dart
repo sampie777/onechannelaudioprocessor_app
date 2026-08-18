@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../models/mixer_state.dart';
 import '../../services/esp32_connection_service.dart';
+import '../../widgets/hardware_volume_listener_widget.dart';
 import '../../widgets/icons/eq_filter_icons.dart';
 import 'interactive_eq_graph.dart';
 
@@ -55,86 +56,89 @@ class _EqScreenState extends State<EqScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('6-Band EQ')),
-      body: StreamBuilder<MixerState>(
-        stream: widget.service.stateStream,
-        builder: (context, snapshot) {
-          final state = snapshot.data;
-          if (state == null) {
-            return const Center(child: CircularProgressIndicator());
-          }
+      body: HardwareVolumeListenerWidget(
+        service: widget.service,
+        child: StreamBuilder<MixerState>(
+          stream: widget.service.stateStream,
+          builder: (context, snapshot) {
+            final state = snapshot.data;
+            if (state == null) {
+              return const Center(child: CircularProgressIndicator());
+            }
 
-          final eq = state.eq;
+            final eq = state.eq;
 
-          return Column(
-            children: [
-              Container(
-                height: 220,
-                width: double.infinity,
-                padding: const EdgeInsets.all(16.0),
-                color: Theme.of(context).scaffoldBackgroundColor,
-                child: InteractiveEqGraph(
-                  eq: eq,
-                  spectrum: state.spectrum,
-                  activeBandKey: _activeBandKey,
-                  service: widget.service,
-                  onBandSelected: (bandKey) {
-                    setState(() => _activeBandKey = bandKey);
-                  },
-                  onLocalStateChanged: () {
-                    setState(() {});
-                  },
-                ),
-              ),
-              const Divider(height: 1, thickness: 1),
-
-              Expanded(
-                child: ListView(
+            return Column(
+              children: [
+                Container(
+                  height: 220,
+                  width: double.infinity,
                   padding: const EdgeInsets.all(16.0),
-                  children: [
-                    _buildHighPassCard('high_pass', eq.highPass),
-                    const SizedBox(height: 16),
-                    _buildShelfCard(
-                      'Low Shelf',
-                      'low_shelf',
-                      eq.lowShelf,
-                      EqBandsConfig.lowShelfFreqs,
-                      const EqFilterIcon.lowShelf(size: 24),
-                    ),
-                    const SizedBox(height: 16),
-                    _buildParametricCard(
-                      'Low Band',
-                      'low',
-                      eq.low,
-                      EqBandsConfig.lowFreqs,
-                    ),
-                    const SizedBox(height: 16),
-                    _buildParametricCard(
-                      'Mid Band',
-                      'mid',
-                      eq.mid,
-                      EqBandsConfig.midFreqs,
-                    ),
-                    const SizedBox(height: 16),
-                    _buildParametricCard(
-                      'High Band',
-                      'high',
-                      eq.high,
-                      EqBandsConfig.highFreqs,
-                    ),
-                    const SizedBox(height: 16),
-                    _buildShelfCard(
-                      'High Shelf',
-                      'high_shelf',
-                      eq.highShelf,
-                      EqBandsConfig.highShelfFreqs,
-                      const EqFilterIcon.highShelf(size: 24),
-                    ),
-                  ],
+                  color: Theme.of(context).scaffoldBackgroundColor,
+                  child: InteractiveEqGraph(
+                    eq: eq,
+                    spectrum: state.spectrum,
+                    activeBandKey: _activeBandKey,
+                    service: widget.service,
+                    onBandSelected: (bandKey) {
+                      setState(() => _activeBandKey = bandKey);
+                    },
+                    onLocalStateChanged: () {
+                      setState(() {});
+                    },
+                  ),
                 ),
-              ),
-            ],
-          );
-        },
+                const Divider(height: 1, thickness: 1),
+
+                Expanded(
+                  child: ListView(
+                    padding: const EdgeInsets.all(16.0),
+                    children: [
+                      _buildHighPassCard('high_pass', eq.highPass),
+                      const SizedBox(height: 16),
+                      _buildShelfCard(
+                        'Low Shelf',
+                        'low_shelf',
+                        eq.lowShelf,
+                        EqBandsConfig.lowShelfFreqs,
+                        const EqFilterIcon.lowShelf(size: 24),
+                      ),
+                      const SizedBox(height: 16),
+                      _buildParametricCard(
+                        'Low Band',
+                        'low',
+                        eq.low,
+                        EqBandsConfig.lowFreqs,
+                      ),
+                      const SizedBox(height: 16),
+                      _buildParametricCard(
+                        'Mid Band',
+                        'mid',
+                        eq.mid,
+                        EqBandsConfig.midFreqs,
+                      ),
+                      const SizedBox(height: 16),
+                      _buildParametricCard(
+                        'High Band',
+                        'high',
+                        eq.high,
+                        EqBandsConfig.highFreqs,
+                      ),
+                      const SizedBox(height: 16),
+                      _buildShelfCard(
+                        'High Shelf',
+                        'high_shelf',
+                        eq.highShelf,
+                        EqBandsConfig.highShelfFreqs,
+                        const EqFilterIcon.highShelf(size: 24),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
       ),
     );
   }

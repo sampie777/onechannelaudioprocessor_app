@@ -38,6 +38,7 @@ dependencies:
   plugin_wifi_connect: ^2.0.1
   app_settings: ^5.1.1
   flutter_launcher_icons: ^0.14.4
+  perfect_volume_control: ^1.0.6
 
 dev_dependencies:
   flutter_test:
