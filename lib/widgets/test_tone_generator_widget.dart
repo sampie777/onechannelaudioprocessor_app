@@ -8,6 +8,8 @@ import '../services/esp32_connection_service.dart';
 class TestToneGeneratorWidget extends StatelessWidget {
   final Esp32ConnectionService service;
   final GeneratorState generator;
+  final double minVolume;
+  final double maxVolume;
 
   static const double _minFreq = 20.0;
   static const double _maxFreq = 20000.0;
@@ -16,6 +18,8 @@ class TestToneGeneratorWidget extends StatelessWidget {
     super.key,
     required this.service,
     required this.generator,
+    this.minVolume = -60.0,
+    this.maxVolume = 0.0,
   });
 
   /// Converts a logarithmic frequency in Hz to a normalized 0.0 – 1.0 slider fraction
@@ -45,7 +49,7 @@ class TestToneGeneratorWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     final bool isEnabled = generator.enabled.value;
     final String activeType = generator.type.value;
-    final double volume = generator.volume.value.clamp(-127.0, 0.0);
+    final double volume = generator.volume.value.clamp(minVolume, maxVolume);
     final int frequency = generator.frequency.value;
 
     return Card(
@@ -186,8 +190,8 @@ class TestToneGeneratorWidget extends StatelessWidget {
             ),
             Slider(
               value: volume,
-              min: -127.0,
-              max: 0.0,
+              min: minVolume,
+              max: maxVolume,
               activeColor: Colors.cyan,
               onChanged: (val) {
                 final double rounded = (val * 2).round() / 2.0;
