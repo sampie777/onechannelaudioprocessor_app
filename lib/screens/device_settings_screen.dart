@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import '../models/mixer_state.dart';
 import '../services/esp32_connection_service.dart';
+import '../widgets/test_tone_generator_widget.dart';
 import 'connection_screen.dart';
 
 class DeviceSettingsScreen extends StatefulWidget {
@@ -93,6 +94,13 @@ class _DeviceSettingsScreenState extends State<DeviceSettingsScreen> {
           return ListView(
             padding: const EdgeInsets.all(24.0),
             children: [
+
+              TestToneGeneratorWidget(
+                service: widget.service,
+                generator: state.generator,
+              ),
+              const Divider(height: 48),
+
               // Wi-Fi Section
               const Text(
                 'Network (external Wi-Fi)',

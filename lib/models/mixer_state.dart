@@ -291,6 +291,21 @@ class WifiState extends MixerModule {
   };
 }
 
+class GeneratorState extends MixerModule {
+  final Lockable<bool> enabled = Lockable(false, command: 'generator.enabled');
+  final Lockable<String> type = Lockable('sine', command: 'generator.type');
+  final Lockable<int> frequency = Lockable(1000, command: 'generator.frequency');
+  final Lockable<double> volume = Lockable(-20.0, command: 'generator.volume');
+
+  @override
+  Map<String, Lockable> get properties => {
+    'enabled': enabled,
+    'type': type,
+    'frequency': frequency,
+    'volume': volume,
+  };
+}
+
 // -----------------------------------------------------------------------------
 // NESTED EQ COMPONENTS
 // -----------------------------------------------------------------------------
@@ -460,6 +475,7 @@ class MixerState {
   late final ClientState client;
   late final DeviceState device;
   late final WifiState wifi;
+  late final GeneratorState generator;
 
   // Module Registry for automated looping
   final Map<String, MixerModule> _modules = {};
@@ -477,6 +493,7 @@ class MixerState {
     client = ClientState();
     device = DeviceState();
     wifi = WifiState();
+    generator = GeneratorState();
 
     _modules['routing'] = routing;
     _modules['pga'] = pga;
@@ -490,6 +507,7 @@ class MixerState {
     _modules['client'] = client;
     _modules['device'] = device;
     _modules['wifi'] = wifi;
+    _modules['generator'] = generator;
   }
 
   List<int> nau88Registers = List.filled(128, 0);

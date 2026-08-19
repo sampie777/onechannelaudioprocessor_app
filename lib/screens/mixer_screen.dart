@@ -282,6 +282,8 @@ class _MixerScreenState extends State<MixerScreen> {
                   outputPeak = dbfsToRaw(outputDb).clamp(0.0, 1.0);
                 }
 
+                var meterDisplayMode = state.generator.enabled.value ? MeterDisplayMode.input : _meterMode;
+
                 return Padding(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 24.0,
@@ -296,7 +298,7 @@ class _MixerScreenState extends State<MixerScreen> {
                             onTap: () {
                               setState(() {
                                 int next =
-                                    (_meterMode.index + 1) %
+                                    (meterDisplayMode.index + 1) %
                                     MeterDisplayMode.values.length;
                                 _meterMode = MeterDisplayMode.values[next];
                               });
@@ -313,9 +315,9 @@ class _MixerScreenState extends State<MixerScreen> {
                                 border: Border.all(color: Colors.grey.shade700),
                               ),
                               child: Text(
-                                _meterMode == MeterDisplayMode.input
+                                meterDisplayMode == MeterDisplayMode.input
                                     ? 'IN'
-                                    : _meterMode == MeterDisplayMode.output
+                                    : meterDisplayMode == MeterDisplayMode.output
                                     ? 'OUT'
                                     : 'IN | OUT',
                                 style: const TextStyle(
@@ -332,19 +334,19 @@ class _MixerScreenState extends State<MixerScreen> {
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                if (_meterMode == MeterDisplayMode.input ||
-                                    _meterMode == MeterDisplayMode.both)
+                                if (meterDisplayMode == MeterDisplayMode.input ||
+                                    meterDisplayMode == MeterDisplayMode.both)
                                   AudioMeterWidget(
                                     peak: inputPeak,
                                     width: 20,
                                     showScale:
-                                        _meterMode == MeterDisplayMode.input,
+                                        meterDisplayMode == MeterDisplayMode.input,
                                     label: "Pre",
                                   ),
-                                if (_meterMode == MeterDisplayMode.both)
+                                if (meterDisplayMode == MeterDisplayMode.both)
                                   const SizedBox(width: 12),
-                                if (_meterMode == MeterDisplayMode.output ||
-                                    _meterMode == MeterDisplayMode.both)
+                                if (meterDisplayMode == MeterDisplayMode.output ||
+                                    meterDisplayMode == MeterDisplayMode.both)
                                   AudioMeterWidget(
                                     peak: outputPeak,
                                     width: 20,
